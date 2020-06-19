@@ -1,0 +1,37 @@
+name: ael-test
+channels:
+  - conda-forge
+  - pytorch
+dependencies:
+  - python
+  - pip
+
+  - numpy
+  - scipy
+  - scikit-learn
+  - qcelemental
+
+  - matplotlib
+  - seaborn
+
+  - mlflow
+
+  - pytorch
+  - torchvision
+
+  - lark-parser
+  - cython
+
+  - pip:
+    - torchani
+    - "git+https://github.com/RMeli/mdanalysis.git@develop#egg=MDAnalysis&subdirectory=package"
+
+  - black
+  - flake8
+  - mypy
+  - isort
+
+  - pytest
+  - pytest-xdist
+  - pytest-cov
+  - codecov
