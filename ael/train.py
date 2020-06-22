@@ -332,7 +332,7 @@ if __name__ == "__main__":
             testdata.atomicnums_to_idxs(amap)
 
         # Save amap to JSON file
-        utils.save_amap(amap, path=args.outpath)
+        utils.save_amap(amap, path=os.path.join(args.outpath, "amap.json"))
 
         mlflow.log_param("nspecies", n_species)
 

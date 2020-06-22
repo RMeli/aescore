@@ -30,7 +30,7 @@ class AtomicNN(nn.Module):
 
         if layers_sizes is None:
             # Default values from TorchANI turorial
-            self.layers_sizes = [160, 128, 96, 1]
+            self.layers_sizes: List[int] = [160, 128, 96, 1]
         else:
             self.layers_sizes = layers_sizes.copy()
 
