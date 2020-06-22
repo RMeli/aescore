@@ -7,6 +7,8 @@ import tqdm
 
 from ael import utils
 
+from typing import Optional, Tuple, List
+
 
 def train(
     model,
@@ -15,11 +17,42 @@ def train(
     AEVC,  # torchani.AEVComputer
     trainloader,
     testloader,
-    epochs=15,
-    savepath=None,
-    idx=None,
+    epochs: int = 15,
+    savepath: Optional[str] = None,
+    idx: Optional[int] = None,
     device=None,
-):
+) -> Tuple[List[float], List[float]]:
+    """
+    Train model.
+
+    Parameters
+    ----------
+    model
+        Model
+    optimizer
+        Optimizer
+    loss_function
+        Loss function
+    AEVC: torchani.AEVComputer
+        AEVComputer
+    trainloader:
+        Train set loader
+    testloader:
+        Test (validation) set loader
+    epochs: int
+        Number of training epochs
+    savepath:
+        Save path for best performing model
+    idx: int
+        Inded (for multiple trainings)
+    device:
+        Computation device
+
+    Returns
+    -------
+    Tuple[List[float], List[float]]
+        Train loss and validation loss
+    """
 
     if device is None:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -36,7 +69,8 @@ def train(
     # Labels and densities are on the GPU
     model.to(device)
 
-    train_losses, valid_losses = [], []
+    train_losses: List[float] = []
+    valid_losses: List[float] = []
 
     best_valid_loss = np.inf
     best_epoch = 0
@@ -48,7 +82,7 @@ def train(
         model.train()
 
         # Initialize total epoch loss
-        epoch_loss = 0
+        epoch_loss: float = 0.0
 
         # Training
         for _, labels, (species, coordinates) in trainloader:
@@ -80,7 +114,7 @@ def train(
             epoch_loss += loss.item()
 
         else:
-            valid_loss = 0
+            valid_loss: float = 0.0
 
             # Put model in evaluation mode
             model.eval()
