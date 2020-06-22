@@ -9,11 +9,39 @@ import torch.nn as nn
 import tqdm
 from torch.utils import data
 
+from typing import Union, List, Tuple, Iterable, Optional, Dict
 
-def load_pdbs(ligand: str, receptor: str, datapaths):
 
+def load_pdbs(
+    ligand: str, receptor: str, datapaths: Union[str, List[str]]
+) -> mda.Universe:
+    """
+    Load ligand and receptor PDB files in a single mda.Universe
+
+    Parameters
+    ----------
+    ligand: str
+        Ligand file
+    receptor: str
+        Receptor file
+    datapaths: Union[str, List[str]]
+        Paths to root directory ligand and receptors are stored
+
+    Returns
+    -------
+    mda.Universe
+        MDAnalysis universe for the protein-ligand complex
+
+    Notes
+    -----
+    The ligand is treated as a single entity named LIG. (:code:`resname LIG`).
+
+    The folders containing ligand and receptor files data are defined by
+    :code:`datapaths`.
+    """
+
+    # Ensure list
     if isinstance(datapaths, str):
-        # Make list
         datapaths = [datapaths]
 
     # TODO: Redirect warning instead of suppressing
@@ -51,7 +79,28 @@ def load_pdbs(ligand: str, receptor: str, datapaths):
     return system
 
 
-def select(system, distance: float):
+def select(system: mda.Universe, distance: float) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Select binding site.
+
+    Parameters
+    ---------
+    system: mda.Universe
+        Protein-ligand complex
+    distance: float
+        Ligand-residues distance
+
+    Returns
+    -------
+    Tuple[np.ndarray, np.ndarray]
+        Array of elements and array of cartesian coordinate for ligand and protein
+        atoms within the binding site
+
+    Notes
+    -----
+    The binding site is defined by residues with at least one atom within
+    :code:`distance` from the ligand.
+    """
     resselection = system.select_atoms(
         f"(byres (around {distance} (resname LIG))) or (resname LIG)"
     )
@@ -60,13 +109,52 @@ def select(system, distance: float):
     return resselection.elements, resselection.positions
 
 
-def load_pdbs_and_select(ligand: str, receptor: str, distance: float, datapaths):
+def load_pdbs_and_select(
+    ligand: str, receptor: str, distance: float, datapaths
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Load PDB files and select binding site.
+
+    Parameters
+    ----------
+    ligand: str
+        Ligand file
+    receptor: str
+        Receptor file
+    distance: float
+        Ligand-residues distance
+    datapaths: Union[str, List[str]]
+        Paths to root directory ligand and receptors are stored
+
+    Returns
+    -------
+    Tuple[np.ndarray, np.ndarray]
+        Array of elements and array of cartesian coordinate for ligand and protein
+        atoms within the binding site
+
+    Notes
+    -----
+    Combines :func:`load_pdbs` and :func:`select`.
+    """
     system = load_pdbs(ligand, receptor, datapaths)
 
     return select(system, distance)
 
 
-def elements_to_atomicnums(elements):
+def elements_to_atomicnums(elements: Iterable) -> np.ndarray:
+    """
+    Convert element symbols to atomic numbers.
+
+    Parameters
+    ----------
+    elements: Iterable
+        Iterable object with lement symbols
+
+    Returns
+    -------
+    np.ndarray
+        Array of atomic numbers
+    """
     atomicnums = np.zeros(len(elements), dtype=int)
 
     for idx, e in enumerate(elements):
@@ -75,8 +163,29 @@ def elements_to_atomicnums(elements):
     return atomicnums
 
 
-def pad_collate(batch, species_pad_value=-1, coords_pad_value=0, device=None):
+def pad_collate(
+    batch,
+    species_pad_value=-1,
+    coords_pad_value=0,
+    device: Optional[Union[str, torch.device]] = None,
+) -> Tuple[np.ndarray, torch.tensor, Tuple[torch.tensor, torch.tensor]]:
     """
+    Collate function to pad batches.
+
+    Parameters
+    ----------
+    batch:
+        Batch
+    species_pad_value:
+        Padding value for species vector
+    coords_pad_value:
+        Padding value for coordinates
+    device: Optional[Union[str, torch.device]]
+        Computation device
+
+    Returns
+    -------
+    Tuple[np.ndarray, torch.tensor, Tuple[torch.tensor, torch.tensor]]
 
     Notes
     -----
@@ -99,7 +208,15 @@ def pad_collate(batch, species_pad_value=-1, coords_pad_value=0, device=None):
     return np.array(ids), torch.tensor(labels), (pad_species, pad_coordinates)
 
 
-def anummap(*args):
+def anummap(*args) -> Dict[int, int]:
+    """
+    Map atomic numbers to zero-based numbers.
+
+    Returns
+    -------
+    Dict[int, int]
+        Mapping between atomic numbers and indices
+    """
     unique_atomicnums = set()
 
     for species in args:
@@ -110,7 +227,33 @@ def anummap(*args):
 
 
 class PDBData(data.Dataset):
-    def __init__(self, fname, distance, datapaths="", desc=None):
+    """
+    PDB dataset.
+
+    Parameters
+    ----------
+    fname: str
+        Data file name
+    distance: float
+        Ligand-residues distance
+    datapaths: Union[str, List[str]]
+        Paths to root directory ligand and receptors are stored
+    desc:
+        Dataset description (for :mod:`tqdm`)
+
+    Notes
+    -----
+    The data file contains the label in the first colum, the protein file name in
+    the second column and the ligand file name in the third colum.
+    """
+
+    def __init__(
+        self,
+        fname: str,
+        distance: float,
+        datapaths: Union[str, List[str]] = "",
+        desc: str = None,
+    ) -> None:
 
         super().__init__()
 
@@ -151,17 +294,56 @@ class PDBData(data.Dataset):
 
         self.species_are_indices = False
 
-    def __len__(self):
+    def __len__(self) -> int:
+        """
+        Number of protein-ligand complexes in the dataset.
+
+        Returns
+        -------
+        int
+            Dataset length
+        """
         return self.n
 
-    def __getitem__(self, idx):
+    def __getitem__(
+        self, idx: int
+    ) -> Tuple[np.ndarray, torch.tensor, Tuple[torch.tensor, torch.tensor]]:
+        """
+        Get item from dataset.
+
+        Parameters
+        ----------
+        idx: int
+            Item index within the dataset
+
+        Returns
+        -------
+        Tuple[np.ndarray, torch.tensor, Tuple[torch.tensor, torch.tensor]]
+            Item from the dataset (PDB IDs, labels, species, coordinates)
+        """
         return (
             self.ids[idx],
             self.labels[idx],
             (self.species[idx], self.coordinates[idx]),
         )
 
-    def atomicnums_to_idxs(self, atomicnums_map):
+    def atomicnums_to_idxs(self, atomicnums_map: Dict[int, int]) -> None:
+        """
+        Convert atomic numbers to indices.
+
+        Parameters
+        ----------
+        atomicnums_map: Dict[int, int]
+            Map of atomic number to indices
+
+        Notes
+        -----
+        This function converts :attr:`species` from :code:`np.array` to
+        :code:`torch.tensor`.
+
+        The :code`atomicnums_map` needs to be shared between train/validation/test
+        datasets for consistency.
+        """
 
         if not self.species_are_indices:
 
