@@ -9,7 +9,7 @@ import torch.nn as nn
 import tqdm
 from torch.utils import data
 
-from typing import Union, List, Tuple, Iterable, Optional, Dict
+from typing import Union, List, Tuple, Collection, Optional, Dict
 
 
 def load_pdbs(
@@ -141,7 +141,7 @@ def load_pdbs_and_select(
     return select(system, distance)
 
 
-def elements_to_atomicnums(elements: Iterable) -> np.ndarray:
+def elements_to_atomicnums(elements: Collection[int]) -> np.ndarray:
     """
     Convert element symbols to atomic numbers.
 
@@ -168,7 +168,7 @@ def pad_collate(
     species_pad_value=-1,
     coords_pad_value=0,
     device: Optional[Union[str, torch.device]] = None,
-) -> Tuple[np.ndarray, torch.tensor, Tuple[torch.tensor, torch.tensor]]:
+) -> Tuple[np.ndarray, torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
     """
     Collate function to pad batches.
 
@@ -185,7 +185,7 @@ def pad_collate(
 
     Returns
     -------
-    Tuple[np.ndarray, torch.tensor, Tuple[torch.tensor, torch.tensor]]
+    Tuple[np.ndarray, torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]
 
     Notes
     -----
@@ -307,7 +307,7 @@ class PDBData(data.Dataset):
 
     def __getitem__(
         self, idx: int
-    ) -> Tuple[np.ndarray, torch.tensor, Tuple[torch.tensor, torch.tensor]]:
+    ) -> Tuple[str, float, Tuple[torch.Tensor, torch.Tensor]]:
         """
         Get item from dataset.
 
@@ -318,7 +318,7 @@ class PDBData(data.Dataset):
 
         Returns
         -------
-        Tuple[np.ndarray, torch.tensor, Tuple[torch.tensor, torch.tensor]]
+        Tuple[str, float, Tuple[torch.Tensor, torch.Tensor]]
             Item from the dataset (PDB IDs, labels, species, coordinates)
         """
         return (
@@ -355,3 +355,5 @@ class PDBData(data.Dataset):
             for idx in range(self.n):
                 indices = v_anum_to_i(self.species[idx])
                 self.species[idx] = torch.from_numpy(indices)
+
+            self.species_are_indices = True

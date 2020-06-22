@@ -7,7 +7,7 @@ from torch import nn
 
 class AtomicNN(nn.Module):
     """
-    Atomic Neural Network
+    Atomic Neural Network (ANN)
 
     Parameters
     ----------
@@ -58,6 +58,18 @@ class AtomicNN(nn.Module):
 
 class AffinityModel(nn.ModuleDict):
     """
+    Affinity prediction from AEVs.
+
+    Parameters
+    ----------
+    n_species: int
+        Number of species
+    aev_length: int
+        Length of the atomic environment vectors
+    layers_sizes: Optional[List[int]] = None
+        Layers' dimensions for each atomic NN
+    dropp: Optional[float]
+        Dropout probability
 
     Notes
     -----
