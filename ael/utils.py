@@ -1,16 +1,13 @@
 import json
+from typing import Dict
 
 import mlflow
 import numpy as np
-
 import torch
+import torchani
 from torch import nn
 
-import torchani
-
 from ael import constants, models
-
-from typing import Dict
 
 
 def savemodel(model: nn.ModuleDict, path) -> None:

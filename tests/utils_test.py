@@ -1,14 +1,12 @@
-import numpy as np
 import os
 
+import numpy as np
+import pytest
 import torch
+import torchani
 from torch import nn
 
-import torchani
-
 from ael import models, utils
-
-import pytest
 
 np.random.seed(42)
 torch.manual_seed(42)

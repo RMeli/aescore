@@ -1,5 +1,6 @@
 import os
 import warnings
+from typing import Collection, Dict, List, Optional, Tuple, Union
 
 import MDAnalysis as mda
 import numpy as np
@@ -8,8 +9,6 @@ import torch
 import torch.nn as nn
 import tqdm
 from torch.utils import data
-
-from typing import Union, List, Tuple, Collection, Optional, Dict
 
 
 def load_pdbs(
