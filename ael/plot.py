@@ -10,10 +10,34 @@ from sklearn.metrics import mean_squared_error
 colors = {"train": "tab:blue", "valid": "tab:orange", "test": "tab:green"}
 
 
-def regplot(true, predicted, name, std=None, color=None, path=""):
+def regplot(
+    true: np.ndarray,
+    predicted: np.ndarray,
+    name: str,
+    std: np.ndarray = None,
+    color: str = None,
+    path="",
+) -> None:
     """
     Regression plot of predicted versus true (experimental) values.
 
+    Parameters
+    ----------
+    true: np.ndarray
+        True (experimental) values
+    predicted: np.ndarray
+        Predicted values
+    name: str
+        Plot name
+    std: np.ndarray
+        Standard deviation
+    color: str
+        Plot color
+    path:
+        Save path
+
+    Notes
+    -----
     Save plot as PNG and PDF, and track files in MLFlow.
     """
 
@@ -58,9 +82,16 @@ def regplot(true, predicted, name, std=None, color=None, path=""):
     mlflow.log_param(f"rmse_{name}", rmse)
 
 
-def savefig(name, path=""):
+def savefig(name: str, path: str = ""):
     """
     Save plot as PNG and PDF, and track files in MLFlow.
+
+    Parameters
+    ----------
+    name:
+        File name
+    path:
+        File path
     """
     outprefix = os.path.join(path, name)
 
