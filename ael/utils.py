@@ -1,22 +1,33 @@
 import json
-import os
+from typing import Dict
 
 import mlflow
 import numpy as np
 import torch
 import torchani
+from torch import nn
 
 from ael import constants, models
 
 
-def savemodel(model, path):
+def savemodel(model: nn.ModuleDict, path) -> None:
+    """
+    Save AffinityModel.
+
+    Parameters
+    ----------
+    model: torch.nn.ModuleDict
+        Model
+    path:
+        Save path
+    """
     torch.save(
         {
             "args": {
                 "n_species": model.n_species,
                 "aev_length": model.aev_length,
                 # Drop first layer size which is n_species
-                "layers_sizes": model.layers_sizes[1:],
+                "layers_sizes": model.layers_sizes[1:],  # type: ignore
                 "dropp": model.dropp,
             },
             "state_dict": model.state_dict(),
@@ -24,8 +35,30 @@ def savemodel(model, path):
         path,
     )
 
+    mlflow.log_artifact(path)
 
-def loadmodel(path, eval=True):
+
+def loadmodel(path, eval: bool = True) -> nn.ModuleDict:
+    """
+    Load AffinityModel.
+
+    Parameters
+    ----------
+    path:
+        Save path
+    eval: bool
+        Flag to put model in evaluation mode
+
+    Returns
+    -------
+    nn.ModuleDict
+        Model
+
+    Notes
+    -----
+    Evaluation mode is needed to switch off the dropout layers when using the model
+    for inference.
+    """
     d = torch.load(path)
 
     model = models.AffinityModel(**d["args"])
@@ -42,7 +75,19 @@ def loadmodel(path, eval=True):
     return model
 
 
-def saveAEVC(AEVC, n_species, path):
+def saveAEVC(AEVC: torchani.AEVComputer, n_species: int, path) -> None:
+    """
+    Save AEVComputer.
+
+    Parameters
+    ----------
+    AEVC: torchani.AEVComputer
+        AEVComputer
+    n_species: int
+        Number of species
+    path:
+        Save path
+    """
     Rcr, EtaR, ShfR, Rca, ShfZ, EtaA, Zeta, ShfA = AEVC.constants()
 
     torch.save(
@@ -66,7 +111,18 @@ def saveAEVC(AEVC, n_species, path):
     mlflow.log_artifact(path)
 
 
-def loadAEVC(path):
+def loadAEVC(path) -> torchani.AEVComputer:
+    """
+    Load AEVComputer.
+
+    Parameters
+    ----------
+
+    Returns
+    -------
+    torchani.AEVComputer
+        AEVComputer
+    """
     d = torch.load(path)
 
     AEVC = torchani.AEVComputer(**d["args"])
@@ -76,19 +132,41 @@ def loadAEVC(path):
     return AEVC
 
 
-def save_amap(amap, path=""):
+def save_amap(amap: Dict[int, int], path):
+    """
+    Save atomic number to index map.
+
+    Parameters
+    ----------
+    amap:
+        Atomic numbers to index map
+    path:
+        Save path
+    """
 
     # Original amap contains np.int64
     converted = {int(k): int(v) for k, v in amap.items()}
 
-    fname = os.path.join(path, "amap.json")
-    with open(fname, "w") as fout:
+    with open(path, "w") as fout:
         json.dump(converted, fout)
 
-    mlflow.log_artifact(fname)
+    mlflow.log_artifact(path)
 
 
-def load_amap(fname):
+def load_amap(fname) -> Dict[int, int]:
+    """
+    Load atomic number to index map.
+
+    Parameters
+    ----------
+    fname
+        File name
+
+    Returns
+    -------
+    Dict[int, int]
+        Atomic number to index map
+    """
 
     with open(fname, "r") as fin:
         amap = json.load(fin)

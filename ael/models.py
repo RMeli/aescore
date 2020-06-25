@@ -7,7 +7,7 @@ from torch import nn
 
 class AtomicNN(nn.Module):
     """
-    Atomic Neural Network
+    Atomic Neural Network (ANN)
 
     Parameters
     ----------
@@ -30,7 +30,7 @@ class AtomicNN(nn.Module):
 
         if layers_sizes is None:
             # Default values from TorchANI turorial
-            self.layers_sizes = [160, 128, 96, 1]
+            self.layers_sizes: List[int] = [160, 128, 96, 1]
         else:
             self.layers_sizes = layers_sizes.copy()
 
@@ -58,6 +58,18 @@ class AtomicNN(nn.Module):
 
 class AffinityModel(nn.ModuleDict):
     """
+    Affinity prediction from AEVs.
+
+    Parameters
+    ----------
+    n_species: int
+        Number of species
+    aev_length: int
+        Length of the atomic environment vectors
+    layers_sizes: Optional[List[int]] = None
+        Layers' dimensions for each atomic NN
+    dropp: Optional[float]
+        Dropout probability
 
     Notes
     -----
