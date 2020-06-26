@@ -116,6 +116,7 @@ if __name__ == "__main__":
     import os
 
     import pandas as pd
+    import json
 
     from ael import loaders, utils, plot
 
@@ -127,10 +128,14 @@ if __name__ == "__main__":
 
     parser.add_argument("testfile", type=str, help="Test set file")
 
+    # TODO: Multiple models for consensus scoring
     parser.add_argument("-m", "--model", type=str, default="best.pth", help="Model")
     parser.add_argument("-e", "--aev", type=str, default="aevc.pth", help="Model")
     parser.add_argument(
-        "-a", "--amap", type=str, default="amap.json", help="Atomic mapping"
+        "-am", "--amap", type=str, default="amap.json", help="Atomic mapping to indices"
+    )
+    parser.add_argument(
+        "-cm", "--chemap", type=str, default="cmap.json", help="Chemical mapping"
     )
 
     parser.add_argument(
@@ -172,7 +177,12 @@ if __name__ == "__main__":
 
         mlflow.log_param("batchsize", args.batchsize)
 
-        testdata = loaders.PDBData(args.testfile, args.distance, args.datapaths)
+        with open(args.chemap, "r") as fin:
+            cmap = json.load(fin)
+
+        testdata = loaders.PDBData(
+            args.testfile, args.distance, args.datapaths, cmap, desc="Test set"
+        )
 
         amap = utils.load_amap(args.amap)
 

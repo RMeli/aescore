@@ -100,7 +100,7 @@ def trainparser(default="BP"):
     )
 
     parser.add_argument(
-        "-m", "--chemap", type=str, default=None, help="Chemical elements mapping"
+        "-cm", "--chemap", type=str, default=None, help="Chemical elements mapping"
     )
 
     parser.add_argument("-o", "--outpath", type=str, default="", help="Output path")
