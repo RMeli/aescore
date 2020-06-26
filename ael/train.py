@@ -243,7 +243,7 @@ if __name__ == "__main__":
             path = os.path.join(args.outpath, "cmap.json")
             with open(path, "w") as fout:
                 json.dump(cmap, fout)
-                mlflow.log_artifact(path)
+            mlflow.log_artifact(path)
 
         # Get combined atomic numbers map
         if args.testfile is not None:
