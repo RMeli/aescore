@@ -188,6 +188,7 @@ if __name__ == "__main__":
     from ael import loaders, models, plot, predict, argparsers
 
     import pandas as pd
+    import json
 
     from matplotlib import pyplot as plt
 
@@ -226,17 +227,28 @@ if __name__ == "__main__":
 
         mlflow.log_param("consensus", args.consensus)
 
+        if args.chemap is not None:
+            cmap = json.loads(args.chemap)
+        else:
+            cmap = None
+
         traindata = loaders.PDBData(
-            args.trainfile, args.distance, args.datapaths, desc="Training set"
+            args.trainfile, args.distance, args.datapaths, cmap, desc="Training set"
         )
         validdata = loaders.PDBData(
-            args.validfile, args.distance, args.datapaths, desc="Validation set"
+            args.validfile, args.distance, args.datapaths, cmap, desc="Validation set"
         )
+
+        if cmap is not None:
+            path = os.path.join(args.outpath, "cmap.json")
+            with open(path, "w") as fout:
+                json.dump(cmap, fout)
+                mlflow.log_artifact(path)
 
         # Get combined atomic numbers map
         if args.testfile is not None:
             testdata = loaders.PDBData(
-                args.testfile, args.distance, args.datapaths, desc="Test set"
+                args.testfile, args.distance, args.datapaths, cmap, desc="Test set"
             )
 
             amap = loaders.anummap(

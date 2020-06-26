@@ -65,6 +65,11 @@ def load_pdbs(
                     raise
 
                 break
+        else:
+            # Runs only if nothing is found
+            raise RuntimeError(
+                f"Could not find ligand or receptor file in {datapaths}..."
+            )
 
     lig = ulig.select_atoms("all")
     rec = urec.select_atoms("all")
@@ -267,6 +272,8 @@ class PDBData(data.Dataset):
         self.labels = []
 
         self.ids = []
+
+        self.cmap = cmap
 
         with open(fname, "r") as f:
             for line in tqdm.tqdm(f, desc=desc):
