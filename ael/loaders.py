@@ -237,7 +237,9 @@ class PDBData(data.Dataset):
         Ligand-residues distance
     datapaths: Union[str, List[str]]
         Paths to root directory ligand and receptors are stored
-    desc:
+    cmap: Optional[Union[Dict[str, str], Dict[str, List[str]]]]
+        Chemical mapping
+    desc: Optional[str]
         Dataset description (for :mod:`tqdm`)
 
     Notes
@@ -251,7 +253,8 @@ class PDBData(data.Dataset):
         fname: str,
         distance: float,
         datapaths: Union[str, List[str]] = "",
-        desc: str = None,
+        cmap: Optional[Union[Dict[str, str], Dict[str, List[str]]]] = None,
+        desc: Optional[str] = None,
     ) -> None:
 
         super().__init__()
@@ -287,11 +290,16 @@ class PDBData(data.Dataset):
                 # Coordinates are transformed to tensor here and left unchanged
                 self.coordinates.append(torch.from_numpy(coords))
 
-        self.ids = np.array(self.ids, dtype="U4")
-
         self.n = len(self.labels)
 
+        self.ids = np.array(self.ids, dtype="U4")
+
         self.species_are_indices = False
+
+        # Map one element into another
+        # This allows to reduce the complexity of the model
+        if cmap is not None:
+            self._chemap(cmap)
 
     def __len__(self) -> int:
         """
@@ -325,6 +333,51 @@ class PDBData(data.Dataset):
             self.labels[idx],
             (self.species[idx], self.coordinates[idx]),
         )
+
+    def _chemap(self, cmap: Union[Dict[str, str], Dict[str, List[str]]]):
+        """
+        Map chemical species into another.
+
+        Parameters
+        ----------
+        chemap: Union[Dict[str, str],Dict[str, List[str]]
+            Chemical mapping
+
+        Notes
+        -----
+        This function can be used to map different elements into a single one. For
+        example, map Se to S to avoid selenoproteins or map all metal atoms to a
+        dummy atom X.
+        """
+        if self.species_are_indices:
+            raise RuntimeError("Species are indices. CHEMAP can't be computed.")
+
+        dummy = "X"  # Element symbol for a dummy atom
+
+        # Transform map from element symbols to atomic number
+        cmapZ = {}
+        for to_element, from_elements in cmap.items():
+            if isinstance(from_elements, list):
+                # Transform element symbols into atomic numbers
+                from_elements = [qcel.periodictable.to_Z(e) for e in from_elements]
+            else:
+                # Transform element symbol into atomic number
+                # Make a list for consistency
+                from_elements = [qcel.periodictable.to_Z(from_elements)]
+
+            # Transform destination element symbol into atomic number
+            if to_element != dummy:
+                cmapZ[qcel.periodictable.to_Z(to_element)] = from_elements
+            else:
+                # Dummy atom X is mapped to 0
+                cmapZ[0] = from_elements
+
+        # Apply map to all the species
+        # TODO: Refactor to make this faster
+        for idx in range(self.n):
+            for to_element, from_elements in cmapZ.items():
+                mask = np.isin(self.species[idx], from_elements)
+                self.species[idx][mask] = to_element
 
     def atomicnums_to_idxs(self, atomicnums_map: Dict[int, int]) -> None:
         """
