@@ -255,6 +255,12 @@ def test_pdbloader_labels(testdata, testdir):
     assert torch.allclose(labels, torch.tensor([6.66, 5.92]))
 
 
+def elements_to_idxs(elements, amap):
+    anums = loaders.elements_to_atomicnums(list(elements))
+
+    return [amap[anum] for anum in anums]
+
+
 def test_pdbloader_ligand_species(testdata, testdir):
 
     # Distance 0.0 produces a segmentation fault (see MDAnalysis#2656)
@@ -275,25 +281,114 @@ def test_pdbloader_ligand_species(testdata, testdir):
 
     assert (ids == np.array(["1a4r", "1a4w"])).all()
 
-    def elements_to_idxs(elements):
-        anums = loaders.elements_to_atomicnums(list(elements))
+    assert species.shape == (batch_size, 42)  # Ligand 1a4w is the largest
 
-        return [amap[anum] for anum in anums]
+    # Test ligand 1a4r (padded with -1)
+    assert torch.allclose(
+        species[0, :],
+        torch.tensor(
+            elements_to_idxs("NPOOOPOOOCCOCOCOCNCNCCONCNNC", amap) + 14 * [-1]
+        ),
+    )
+
+    # Test ligand 1a4w (no padding)
+    assert torch.allclose(
+        species[1, :],
+        torch.tensor(
+            elements_to_idxs("CCCCCCCCCCNCCSOONCCOCCCNCNNNCCCCCCCSOCCCCN", amap)
+        ),
+    )
+
+
+def test_pdbloader_species_cmap_toX(testdata, testdir):
+
+    # Map all elements to dummy atom
+    cmap = {"X": ["C", "N", "O", "S", "P"]}
+
+    # Distance 0.0 produces a segmentation fault (see MDAnalysis#2656)
+    data = loaders.PDBData(testdata, 0.1, testdir, cmap)
+
+    # TODO: Access to data loader is quite ugly... NamedTuple?
+    assert np.allclose(
+        data[0][2][0], np.zeros(28),  # Species for first ligand  # Element X maps to 0
+    )
+
+    assert np.allclose(
+        data[1][2][0], np.zeros(42),  # Species for second ligand  # Element X maps to 0
+    )
+
+    batch_size = 2
+
+    # Transform atomic numbers to species
+    amap = loaders.anummap(data.species)
+    data.atomicnums_to_idxs(amap)
+
+    assert len(amap) == 1
+
+    loader = torch.utils.data.DataLoader(
+        data, batch_size=batch_size, shuffle=False, collate_fn=loaders.pad_collate
+    )
+    iloader = iter(loader)
+
+    ids, labels, (species, coordinates) = next(iloader)
+
+    assert (ids == np.array(["1a4r", "1a4w"])).all()
+
+    assert species.shape == (batch_size, 42)  # Ligand 1a4w is the largest
+
+    # Test ligand 1a4r (padded with -1)
+    assert torch.allclose(species[0, :], torch.tensor([0] * 28 + 14 * [-1]),)
+
+    # Test ligand 1a4w (no padding)
+    assert torch.allclose(species[1, :], torch.zeros(42, dtype=int),)
+
+
+def test_pdbloader_species_cmap_OtoS(testdata, testdir):
+
+    # Map all elements to dummy atom
+    cmap = {"S": "O"}
+
+    # Distance 0.0 produces a segmentation fault (see MDAnalysis#2656)
+    data = loaders.PDBData(testdata, 0.1, testdir, cmap)
+
+    batch_size = 2
+
+    # Transform atomic numbers to species
+    amap = loaders.anummap(data.species)
+    data.atomicnums_to_idxs(amap)
+
+    # Check O is not in amap
+    with pytest.raises(KeyError):
+        amap[8]
+
+    loader = torch.utils.data.DataLoader(
+        data, batch_size=batch_size, shuffle=False, collate_fn=loaders.pad_collate
+    )
+    iloader = iter(loader)
+
+    ids, labels, (species, coordinates) = next(iloader)
+
+    assert (ids == np.array(["1a4r", "1a4w"])).all()
 
     assert species.shape == (batch_size, 42)  # Ligand 1a4w is the largest
 
     # Test ligand 1a4r (padded with -1)
     assert torch.allclose(
         species[0, :],
-        torch.tensor(elements_to_idxs("NPOOOPOOOCCOCOCOCNCNCCONCNNC") + 14 * [-1]),
+        torch.tensor(
+            elements_to_idxs("NPSSSPSSSCCSCSCSCNCNCCSNCNNC", amap) + 14 * [-1]
+        ),
     )
 
     # Test ligand 1a4w (no padding)
     assert torch.allclose(
         species[1, :],
-        torch.tensor(elements_to_idxs("CCCCCCCCCCNCCSOONCCOCCCNCNNNCCCCCCCSOCCCCN")),
+        torch.tensor(
+            elements_to_idxs("CCCCCCCCCCNCCSSSNCCSCCCNCNNNCCCCCCCSSCCCCN", amap)
+        ),
     )
 
 
+@pytest.mark.skip(reason="To be implemented")
 def test_pdbloader_ligand_coordinates(testdata):
     pass
