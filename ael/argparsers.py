@@ -99,6 +99,10 @@ def trainparser(default="BP"):
         help="Number of models for consensus scoring",
     )
 
+    parser.add_argument(
+        "-cm", "--chemap", type=str, default=None, help="Chemical elements mapping"
+    )
+
     parser.add_argument("-o", "--outpath", type=str, default="", help="Output path")
 
     parser.add_argument("--plot", action="store_true", help="Enable plotting")
