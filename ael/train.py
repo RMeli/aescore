@@ -65,9 +65,9 @@ def train(
     mlflow.log_param("loss_fn", loss_function.__class__.__name__)
     mlflow.log_param("optimizer", optimizer.__class__.__name__)
 
-    # Move model to CUDA
-    # Labels and densities are on the GPU
+    # Move model and AEVComputer to device
     model.to(device)
+    AEVC.to(device)
 
     train_losses: List[float] = []
     valid_losses: List[float] = []
