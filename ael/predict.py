@@ -186,18 +186,18 @@ if __name__ == "__main__":
 
         amap = utils.load_amap(args.amap)
 
+        testdata.atomicnums_to_idxs(amap)
+
+        n_species = len(amap)
+
+        mlflow.log_param("n_species", n_species)
+
         testloader = data.DataLoader(
             testdata,
             batch_size=args.batchsize,
             shuffle=False,
             collate_fn=loaders.pad_collate,
         )
-
-        testdata.atomicnums_to_idxs(amap)
-
-        n_species = len(amap)
-
-        mlflow.log_param("n_species", n_species)
 
         AEVC = utils.loadAEVC(args.aev)
 
