@@ -230,6 +230,29 @@ def anummap(*args) -> Dict[int, int]:
     return {anum: idx for idx, anum in enumerate(unique_atomicnums)}
 
 
+def _anum_to_idx(anum: int, amap: Dict[int, int]) -> int:
+    """
+    Convert atomic number to index.
+
+    Parameters
+    ----------
+    anum: int
+        Atomic number
+    amap:
+        Map atomic numbers to zero-based indices
+
+    Returns
+    -------
+    int
+        Zero-based index for the given atomic number
+    """
+    return amap[anum]
+
+
+# Numpy vectorisation
+anum_to_idx = np.vectorize(_anum_to_idx)
+
+
 class PDBData(data.Dataset):
     """
     PDB dataset.
@@ -405,14 +428,8 @@ class PDBData(data.Dataset):
         """
 
         if not self.species_are_indices:
-
-            def anum_to_i(a):
-                return atomicnums_map[a]
-
-            v_anum_to_i = np.vectorize(anum_to_i)
-
             for idx in range(self.n):
-                indices = v_anum_to_i(self.species[idx])
+                indices = anum_to_idx(self.species[idx], atomicnums_map)
                 self.species[idx] = torch.from_numpy(indices)
 
             self.species_are_indices = True
