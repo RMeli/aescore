@@ -252,14 +252,17 @@ def _anum_to_idx(anum: int, amap: Dict[int, int]) -> int:
 # Numpy vectorisation
 anum_to_idx = np.vectorize(_anum_to_idx)
 
-def chemap(species: np.ndarray, cmap: Union[Dict[str, str], Dict[str, List[str]]]):
+
+def chemap(
+    atomicnums: List[np.ndarray], cmap: Union[Dict[str, str], Dict[str, List[str]]]
+):
     """
-    Map chemical species into another.
+    Map chemical elements into another.
 
     Parameters
     ----------
-    species: np.ndarray
-        Species
+    atomicnum: List[np.ndarray]
+        List of atomic numbers for every system
     chemap: Union[Dict[str, str],Dict[str, List[str]]
         Chemical mapping
 
@@ -271,7 +274,7 @@ def chemap(species: np.ndarray, cmap: Union[Dict[str, str], Dict[str, List[str]]
 
     :code:`species` is modified in-place.
     """
-    n = len(species)
+    n = len(atomicnums)
 
     dummy = "X"  # Element symbol for a dummy atom
 
@@ -293,12 +296,12 @@ def chemap(species: np.ndarray, cmap: Union[Dict[str, str], Dict[str, List[str]]
             # Dummy atom X is mapped to 0
             cmapZ[0] = from_elements
 
-    # Apply map to all the species
+    # Apply map to all the atomicnums
     # TODO: Refactor to make this faster
     for idx in range(n):
         for to_element, from_elements in cmapZ.items():
-            mask = np.isin(species[idx], from_elements)
-            species[idx][mask] = to_element
+            mask = np.isin(atomicnums[idx], from_elements)
+            atomicnums[idx][mask] = to_element
 
 
 class PDBData(data.Dataset):
