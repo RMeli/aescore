@@ -55,7 +55,7 @@ if __name__ == "__main__":
         "-am", "--amap", type=str, default="amap.json", help="Atomic mapping to indices"
     )
     parser.add_argument(
-        "-cm", "--chemap", type=str, default="cmap.json", help="Chemical mapping"
+        "-cm", "--chemap", type=str, default=None, help="Chemical mapping"
     )
 
     parser.add_argument("-d", "--datapaths", type=str, default="", help="Path to data")
@@ -75,8 +75,11 @@ if __name__ == "__main__":
     else:
         device = torch.device(args.device)
 
-    with open(args.chemap, "r") as fin:
-        cmap = json.load(fin)
+    if args.chemap is not None:
+        with open(args.chemap, "r") as fin:
+            cmap = json.load(fin)
+    else:
+        cmap = None
 
     # Load and apply amap
     amap = utils.load_amap(args.amap)
@@ -110,7 +113,8 @@ if __name__ == "__main__":
             # Apply chemical mapping (if any)
             # Apply mapping from atomic numbers to indices
             anums = loaders.elements_to_atomicnums(selection.elements)
-            loaders.chemap([anums], cmap)  # Only one system
+            if cmap is not None:
+                loaders.chemap([anums], cmap)  # Only one system
             species = loaders.anum_to_idx(anums, amap)
 
             # Get coordinates for selection
