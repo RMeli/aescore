@@ -135,7 +135,7 @@ if __name__ == "__main__":
             )
 
             # Compute gradient norm
-            G[sel_idxs] = gradt.norm(dim=1).numpy()
+            G[sel_idxs] = gradt.norm(dim=1).cpu().numpy()
 
             # Register gradient as temperature factor
             system.add_TopologyAttr("tempfactors", G)
