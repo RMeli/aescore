@@ -89,6 +89,9 @@ if __name__ == "__main__":
     AEVC = utils.loadAEVC(args.aev)
     model = utils.loadmodel(args.model)
 
+    AEVC.to(device)
+    model.to(device)
+
     with open(args.gradfile, "r") as f:
         for line in tqdm.tqdm(f):
             label, recfile, ligfile = line.split()
