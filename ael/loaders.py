@@ -230,6 +230,80 @@ def anummap(*args) -> Dict[int, int]:
     return {anum: idx for idx, anum in enumerate(unique_atomicnums)}
 
 
+def _anum_to_idx(anum: int, amap: Dict[int, int]) -> int:
+    """
+    Convert atomic number to index.
+
+    Parameters
+    ----------
+    anum: int
+        Atomic number
+    amap:
+        Map atomic numbers to zero-based indices
+
+    Returns
+    -------
+    int
+        Zero-based index for the given atomic number
+    """
+    return amap[anum]
+
+
+# Numpy vectorisation
+anum_to_idx = np.vectorize(_anum_to_idx)
+
+
+def chemap(
+    atomicnums: List[np.ndarray], cmap: Union[Dict[str, str], Dict[str, List[str]]]
+):
+    """
+    Map chemical elements into another.
+
+    Parameters
+    ----------
+    atomicnum: List[np.ndarray]
+        List of atomic numbers for every system
+    chemap: Union[Dict[str, str],Dict[str, List[str]]
+        Chemical mapping
+
+    Notes
+    -----
+    This function can be used to map different elements into a single one. For
+    example, map Se to S to avoid selenoproteins or map all metal atoms to a
+    dummy atom X.
+
+    :code:`species` is modified in-place.
+    """
+    n = len(atomicnums)
+
+    dummy = "X"  # Element symbol for a dummy atom
+
+    # Transform map from element symbols to atomic number
+    cmapZ = {}
+    for to_element, from_elements in cmap.items():
+        if isinstance(from_elements, list):
+            # Transform element symbols into atomic numbers
+            from_elements = [qcel.periodictable.to_Z(e) for e in from_elements]
+        else:
+            # Transform element symbol into atomic number
+            # Make a list for consistency
+            from_elements = [qcel.periodictable.to_Z(from_elements)]
+
+        # Transform destination element symbol into atomic number
+        if to_element != dummy:
+            cmapZ[qcel.periodictable.to_Z(to_element)] = from_elements
+        else:
+            # Dummy atom X is mapped to 0
+            cmapZ[0] = from_elements
+
+    # Apply map to all the atomicnums
+    # TODO: Refactor to make this faster
+    for idx in range(n):
+        for to_element, from_elements in cmapZ.items():
+            mask = np.isin(atomicnums[idx], from_elements)
+            atomicnums[idx][mask] = to_element
+
+
 class PDBData(data.Dataset):
     """
     PDB dataset.
@@ -359,32 +433,8 @@ class PDBData(data.Dataset):
         if self.species_are_indices:
             raise RuntimeError("Species are indices. CHEMAP can't be computed.")
 
-        dummy = "X"  # Element symbol for a dummy atom
-
-        # Transform map from element symbols to atomic number
-        cmapZ = {}
-        for to_element, from_elements in cmap.items():
-            if isinstance(from_elements, list):
-                # Transform element symbols into atomic numbers
-                from_elements = [qcel.periodictable.to_Z(e) for e in from_elements]
-            else:
-                # Transform element symbol into atomic number
-                # Make a list for consistency
-                from_elements = [qcel.periodictable.to_Z(from_elements)]
-
-            # Transform destination element symbol into atomic number
-            if to_element != dummy:
-                cmapZ[qcel.periodictable.to_Z(to_element)] = from_elements
-            else:
-                # Dummy atom X is mapped to 0
-                cmapZ[0] = from_elements
-
-        # Apply map to all the species
-        # TODO: Refactor to make this faster
-        for idx in range(self.n):
-            for to_element, from_elements in cmapZ.items():
-                mask = np.isin(self.species[idx], from_elements)
-                self.species[idx][mask] = to_element
+        # Compute mapping
+        chemap(self.species, cmap)
 
     def atomicnums_to_idxs(self, atomicnums_map: Dict[int, int]) -> None:
         """
@@ -405,14 +455,8 @@ class PDBData(data.Dataset):
         """
 
         if not self.species_are_indices:
-
-            def anum_to_i(a):
-                return atomicnums_map[a]
-
-            v_anum_to_i = np.vectorize(anum_to_i)
-
             for idx in range(self.n):
-                indices = v_anum_to_i(self.species[idx])
+                indices = anum_to_idx(self.species[idx], atomicnums_map)
                 self.species[idx] = torch.from_numpy(indices)
 
             self.species_are_indices = True

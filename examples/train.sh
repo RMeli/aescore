@@ -15,7 +15,7 @@ python -m ael.train \
     -l 256 128 64 1 \
     -e 5 \
     -c 3 \
-    -m '{"X": ["P", "S"]}' \
+    -cm '{"X": ["P", "S"]}' \
     -o out \
     --plot \
     --seed 42
