@@ -109,6 +109,43 @@ def predict(model, AEVC, loader, baseline=None, device=None):
     return np.array(identifiers), np.array(true), np.array(predictions)
 
 
+def evaluate(models, loader, AEVC, outpath, stage="test", bl=None):
+
+    assert stage in ["train", "valid", "test"]
+
+    results = {}
+
+    for idx, model in enumerate(models):
+        ids, true, predicted = predict(model, AEVC, loader, bl)
+
+        # Store results
+        if idx == 0:
+            results["true"] = pd.Series(index=ids, data=true)
+
+        results[f"predicted_{idx}"] = pd.Series(index=ids, data=predicted)
+
+    # Build dataframe
+    # This takes care of possible different order of data in different models
+    df = pd.DataFrame(results)
+
+    # Compute averages and stds
+    df["avg"] = df.drop("true", axis="columns").mean(axis="columns")
+    df["std"] = df.drop("true", axis="columns").std(axis="columns")
+
+    csv = os.path.join(outpath, f"{stage}.csv")
+    df.to_csv(csv, float_format="%.5f")
+    mlflow.log_artifact(csv)
+
+    # Plot
+    plot.regplot(
+        df["true"].to_numpy(),
+        df["avg"].to_numpy(),
+        std=df["std"].to_numpy(),
+        name=stage,
+        path=outpath,
+    )
+
+
 if __name__ == "__main__":
 
     import argparse as ap
@@ -128,8 +165,8 @@ if __name__ == "__main__":
 
     parser.add_argument("testfile", type=str, help="Test set file")
 
-    # TODO: Multiple models for consensus scoring
-    parser.add_argument("-m", "--model", type=str, default="best.pth", help="Model")
+    parser.add_argument("models", type=str, nargs="+", help="Models")
+
     parser.add_argument("-e", "--aev", type=str, default="aevc.pth", help="Model")
     parser.add_argument(
         "-am", "--amap", type=str, default="amap.json", help="Atomic mapping to indices"
@@ -138,12 +175,12 @@ if __name__ == "__main__":
         "-cm", "--chemap", type=str, default="cmap.json", help="Chemical mapping"
     )
 
-    parser.add_argument(
-        "-t", "--trainfile", type=str, default=None, help="Training set file"
-    )
-    parser.add_argument(
-        "-v", "--validfile", type=str, default=None, help="Validation set file"
-    )
+    # parser.add_argument(
+    #    "-t", "--trainfile", type=str, default=None, help="Training set file"
+    # )
+    # parser.add_argument(
+    #    "-v", "--validfile", type=str, default=None, help="Validation set file"
+    # )
 
     parser.add_argument("-d", "--datapaths", type=str, default="", help="Path to data")
 
@@ -201,28 +238,6 @@ if __name__ == "__main__":
 
         AEVC = utils.loadAEVC(args.aev)
 
-        model = utils.loadmodel(args.model)
+        models = [utils.loadmodel(m) for m in args.models]
 
-        ids_test, true_test, predicted_test = predict(model, AEVC, testloader)
-
-        plot.regplot(true_test, predicted_test, "test", path=args.outpath)
-
-        results_test = {
-            "ture": pd.Series(index=ids_test, data=true_test),
-            "predicted": pd.Series(index=ids_test, data=predicted_test),
-        }
-
-        df_test = pd.DataFrame(results_test)
-
-        test_csv = os.path.join(args.outpath, "test.csv")
-        df_test.to_csv(test_csv)
-
-        # TODO
-        # if args.trainfile is not None:
-        # true_train, predicted_train = utils.predict(model, AEVC, trainloader)
-        # plot.regplot(true_train, predicted_train, name="train")
-
-        # TODO
-        # if args.validfile is not None:
-        # true_valid, predicted_valid = utils.predict(model, AEVC, validloader)
-        # plot.regplot(true_valid, predicted_valid, name="valid")
+        evaluate(models, testloader, AEVC, args.outpath)
