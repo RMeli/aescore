@@ -3,6 +3,31 @@ from torch import nn
 
 
 def gradient(species, coordinates, label, model, AEVC, loss, device=None):
+    """
+    Compute gradient of the loss with respect to atomic coordinates.
+
+    Parameters
+    ----------
+    species: np.array
+        Atomic species (mapped to indices)
+    coordinates: np.array
+        Atomic coordinates
+    label:
+        Label for the current example
+    model: torch.nn.Module
+        Trained model
+    AEVC: torchani.AEVComputer
+        AEV computer
+    loss:
+        Loss function
+    device:
+        Computation device
+
+    Returns
+    -------
+    np.array
+        Gradient of the loss function with respect to atomic coordinates
+    """
 
     if device is None:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

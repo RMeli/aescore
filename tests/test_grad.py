@@ -24,7 +24,7 @@ EtaA = torch.tensor([8.0], device=device)
 RsA = torch.tensor([0.9], device=device)  # Radial shift in GA
 
 
-def test_train_small(testdata, testdir):
+def test_grad(testdata, testdir):
 
     with mlflow.start_run():
 
@@ -70,5 +70,3 @@ def test_train_small(testdata, testdir):
             )
 
             assert gradient.shape == coordinates.shape
-
-            print(gradient)
