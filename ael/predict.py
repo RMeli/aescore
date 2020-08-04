@@ -166,8 +166,8 @@ if __name__ == "__main__":
 
     mlflow.set_experiment(args.experiment)
 
-    # Start MLFlow run (named train)
-    with mlflow.start_run(run_name="train"):
+    # Start MLFlow run (named predict)
+    with mlflow.start_run(run_name="predict"):
 
         mlflow.log_param("device", args.device)
 
