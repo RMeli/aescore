@@ -1,6 +1,12 @@
+from ael import plot
+
 import mlflow
-import numpy as np
 import torch
+
+import numpy as np
+import pandas as pd
+
+import os
 
 
 def predict(model, AEVC, loader, baseline=None, device=None):
@@ -109,14 +115,14 @@ def predict(model, AEVC, loader, baseline=None, device=None):
     return np.array(identifiers), np.array(true), np.array(predictions)
 
 
-def evaluate(models, loader, AEVC, outpath, stage="test", bl=None):
+def evaluate(models, loader, AEVC, outpath, stage="predict", baseline=None):
 
-    assert stage in ["train", "valid", "test"]
+    assert stage in ["train", "valid", "test", "predict"]
 
     results = {}
 
     for idx, model in enumerate(models):
-        ids, true, predicted = predict(model, AEVC, loader, bl)
+        ids, true, predicted = predict(model, AEVC, loader, baseline)
 
         # Store results
         if idx == 0:
@@ -150,12 +156,9 @@ if __name__ == "__main__":
 
     import argparse as ap
 
-    import os
-
-    import pandas as pd
     import json
 
-    from ael import loaders, utils, plot
+    from ael import loaders, utils
 
     from torch.utils import data
 
@@ -163,7 +166,7 @@ if __name__ == "__main__":
 
     parser.add_argument("experiment", type=str, help="MLFlow experiment")
 
-    parser.add_argument("testfile", type=str, help="Test set file")
+    parser.add_argument("dataset", type=str, help="Dataset file")
 
     parser.add_argument("models", type=str, nargs="+", help="Models")
 
@@ -174,13 +177,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "-cm", "--chemap", type=str, default="cmap.json", help="Chemical mapping"
     )
-
-    # parser.add_argument(
-    #    "-t", "--trainfile", type=str, default=None, help="Training set file"
-    # )
-    # parser.add_argument(
-    #    "-v", "--validfile", type=str, default=None, help="Validation set file"
-    # )
 
     parser.add_argument("-d", "--datapaths", type=str, default="", help="Path to data")
 
@@ -209,7 +205,7 @@ if __name__ == "__main__":
         mlflow.log_param("device", args.device)
 
         mlflow.log_param("distance", args.distance)
-        mlflow.log_param("testfile", args.testfile)
+        mlflow.log_param("dataset", args.dataset)
         mlflow.log_param("datapaths", args.datapaths)
 
         mlflow.log_param("batchsize", args.batchsize)
@@ -218,7 +214,7 @@ if __name__ == "__main__":
             cmap = json.load(fin)
 
         testdata = loaders.PDBData(
-            args.testfile, args.distance, args.datapaths, cmap, desc="Test set"
+            args.dataset, args.distance, args.datapaths, cmap, desc="Test set"
         )
 
         amap = utils.load_amap(args.amap)

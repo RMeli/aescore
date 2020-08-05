@@ -1,6 +1,6 @@
 #!/bin/bash
 
-mkdir -p out
+mkdir -p pdbs
 
 python -m ael.grad \
     ../tests/testdata/systems.dat \
@@ -9,4 +9,5 @@ python -m ael.grad \
     -m out/best_0.pth \
     -e out/aevc.pth \
     -am out/amap.json \
-    -cm out/cmap.json
+    -cm out/cmap.json \
+    -o pdbs

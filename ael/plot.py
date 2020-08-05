@@ -7,7 +7,12 @@ from matplotlib import pyplot as plt
 from scipy import stats
 from sklearn.metrics import mean_squared_error
 
-colors = {"train": "tab:blue", "valid": "tab:orange", "test": "tab:green"}
+colors = {
+    "train": "tab:blue",
+    "valid": "tab:orange",
+    "test": "tab:green",
+    "predict": "tab:purple",
+}
 
 
 def regplot(

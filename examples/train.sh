@@ -13,7 +13,7 @@ python -m ael.train \
     -lr 0.0005 \
     -b 2 \
     -l 256 128 64 1 \
-    -e 5 \
+    -e 10 \
     -c 3 \
     -cm '{"X": ["P", "S"]}' \
     -o out \
