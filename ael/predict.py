@@ -175,7 +175,7 @@ if __name__ == "__main__":
         "-am", "--amap", type=str, default="amap.json", help="Atomic mapping to indices"
     )
     parser.add_argument(
-        "-cm", "--chemap", type=str, default="cmap.json", help="Chemical mapping"
+        "-cm", "--chemap", type=str, default=None, help="Chemical mapping"
     )
 
     parser.add_argument("-d", "--datapaths", type=str, default="", help="Path to data")
@@ -210,8 +210,10 @@ if __name__ == "__main__":
 
         mlflow.log_param("batchsize", args.batchsize)
 
-        with open(args.chemap, "r") as fin:
-            cmap = json.load(fin)
+        if args.chemap is not None:
+            cmap = json.loads(args.chemap)
+        else:
+            cmap = None
 
         testdata = loaders.PDBData(
             args.dataset, args.distance, args.datapaths, cmap, desc="Test set"
