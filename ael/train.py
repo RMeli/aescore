@@ -187,7 +187,6 @@ if __name__ == "__main__":
 
     from ael import loaders, models, plot, predict, argparsers
 
-    import pandas as pd
     import json
 
     from matplotlib import pyplot as plt
@@ -409,95 +408,14 @@ if __name__ == "__main__":
                     utils.loadmodel(os.path.join(args.outpath, f"best_{idx}.pth"))
                 )
 
-        results_train = {}
-        results_valid = {}
-        results_test = {}
-
-        for idx, bestmodel in enumerate(best_models):
-            # Training set predictions
-            ids_train, true_train, predicted_train = predict.predict(
-                bestmodel, AEVC, trainloader, bl
-            )
-
-            # Validation set predictions
-            ids_valid, true_valid, predicted_valid = predict.predict(
-                bestmodel, AEVC, validloader, bl
-            )
-
-            # Store results
-            if idx == 0:
-                results_train["true"] = pd.Series(index=ids_train, data=true_train)
-                results_valid["true"] = pd.Series(index=ids_valid, data=true_valid)
-            results_train[f"predicted_{idx}"] = pd.Series(
-                index=ids_train, data=predicted_train
-            )
-            results_valid[f"predicted_{idx}"] = pd.Series(
-                index=ids_valid, data=predicted_valid
-            )
-
-            # Test set predictions
-            if args.testfile is not None:
-                ids_test, true_test, predicted_test = predict.predict(
-                    bestmodel, AEVC, testloader, bl
-                )
-
-                # Store results
-                if idx == 0:
-                    results_test["true"] = pd.Series(index=ids_test, data=true_test)
-                results_test[f"predicted_{idx}"] = pd.Series(
-                    index=ids_test, data=predicted_test
-                )
-
-        # Build dataframes
-        # This takes care of possible different order of data in different models
-        df_train = pd.DataFrame(results_train)
-        df_valid = pd.DataFrame(results_valid)
-        df_test = pd.DataFrame(results_test)
-
-        # Compute averages and stds
-        df_train["avg"] = df_train.drop("true", axis="columns").mean(axis="columns")
-        df_train["std"] = df_train.drop("true", axis="columns").std(axis="columns")
-        df_valid["avg"] = df_valid.drop("true", axis="columns").mean(axis="columns")
-        df_valid["std"] = df_valid.drop("true", axis="columns").std(axis="columns")
-
-        train_csv = os.path.join(args.outpath, "train.csv")
-        df_train.to_csv(train_csv)
-        mlflow.log_artifact(train_csv)
-
-        valid_csv = os.path.join(args.outpath, "valid.csv")
-        df_valid.to_csv(valid_csv)
-        mlflow.log_artifact(valid_csv)
-
-        # Plot
-        plot.regplot(
-            df_train["true"].to_numpy(),
-            df_train["avg"].to_numpy(),
-            std=df_train["std"].to_numpy(),
-            name="train",
-            path=args.outpath,
+        predict.evaluate(
+            best_models, trainloader, AEVC, args.outpath, baseline=bl, stage="train"
         )
-
-        plot.regplot(
-            df_valid["true"].to_numpy(),
-            df_valid["avg"].to_numpy(),
-            std=df_valid["std"].to_numpy(),
-            name="valid",
-            path=args.outpath,
+        predict.evaluate(
+            best_models, validloader, AEVC, args.outpath, baseline=bl, stage="valid"
         )
 
         if args.testfile is not None:
-            # Compute averages and stds
-            df_test["avg"] = df_test.drop("true", axis="columns").mean(axis="columns")
-            df_test["std"] = df_test.drop("true", axis="columns").std(axis="columns")
-
-            plot.regplot(
-                df_test["true"].to_numpy(),
-                df_test["avg"].to_numpy(),
-                std=df_test["std"].to_numpy(),
-                name="test",
-                path=args.outpath,
+            predict.evaluate(
+                best_models, testloader, AEVC, args.outpath, baseline=bl, stage="test"
             )
-
-            test_csv = os.path.join(args.outpath, "test.csv")
-            df_test.to_csv(test_csv)
-            mlflow.log_artifact(test_csv)

@@ -1,6 +1,12 @@
+from ael import plot
+
 import mlflow
-import numpy as np
 import torch
+
+import numpy as np
+import pandas as pd
+
+import os
 
 
 def predict(model, AEVC, loader, baseline=None, device=None):
@@ -109,16 +115,50 @@ def predict(model, AEVC, loader, baseline=None, device=None):
     return np.array(identifiers), np.array(true), np.array(predictions)
 
 
+def evaluate(models, loader, AEVC, outpath, stage="predict", baseline=None):
+
+    assert stage in ["train", "valid", "test", "predict"]
+
+    results = {}
+
+    for idx, model in enumerate(models):
+        ids, true, predicted = predict(model, AEVC, loader, baseline)
+
+        # Store results
+        if idx == 0:
+            results["true"] = pd.Series(index=ids, data=true)
+
+        results[f"predicted_{idx}"] = pd.Series(index=ids, data=predicted)
+
+    # Build dataframe
+    # This takes care of possible different order of data in different models
+    df = pd.DataFrame(results)
+
+    # Compute averages and stds
+    df["avg"] = df.drop("true", axis="columns").mean(axis="columns")
+    df["std"] = df.drop("true", axis="columns").std(axis="columns")
+
+    csv = os.path.join(outpath, f"{stage}.csv")
+    df.to_csv(csv, float_format="%.5f")
+    mlflow.log_artifact(csv)
+
+    # Plot
+    plot.regplot(
+        df["true"].to_numpy(),
+        df["avg"].to_numpy(),
+        std=df["std"].to_numpy(),
+        name=stage,
+        path=outpath,
+    )
+
+
 if __name__ == "__main__":
 
     import argparse as ap
 
-    import os
-
-    import pandas as pd
     import json
 
-    from ael import loaders, utils, plot
+    from ael import loaders, utils
 
     from torch.utils import data
 
@@ -126,23 +166,16 @@ if __name__ == "__main__":
 
     parser.add_argument("experiment", type=str, help="MLFlow experiment")
 
-    parser.add_argument("testfile", type=str, help="Test set file")
+    parser.add_argument("dataset", type=str, help="Dataset file")
 
-    # TODO: Multiple models for consensus scoring
-    parser.add_argument("-m", "--model", type=str, default="best.pth", help="Model")
+    parser.add_argument("models", type=str, nargs="+", help="Models")
+
     parser.add_argument("-e", "--aev", type=str, default="aevc.pth", help="Model")
     parser.add_argument(
         "-am", "--amap", type=str, default="amap.json", help="Atomic mapping to indices"
     )
     parser.add_argument(
-        "-cm", "--chemap", type=str, default="cmap.json", help="Chemical mapping"
-    )
-
-    parser.add_argument(
-        "-t", "--trainfile", type=str, default=None, help="Training set file"
-    )
-    parser.add_argument(
-        "-v", "--validfile", type=str, default=None, help="Validation set file"
+        "-cm", "--chemap", type=str, default=None, help="Chemical mapping"
     )
 
     parser.add_argument("-d", "--datapaths", type=str, default="", help="Path to data")
@@ -166,22 +199,25 @@ if __name__ == "__main__":
 
     mlflow.set_experiment(args.experiment)
 
-    # Start MLFlow run (named train)
-    with mlflow.start_run(run_name="train"):
+    # Start MLFlow run (named predict)
+    with mlflow.start_run(run_name="predict"):
 
         mlflow.log_param("device", args.device)
 
         mlflow.log_param("distance", args.distance)
-        mlflow.log_param("testfile", args.testfile)
+        mlflow.log_param("dataset", args.dataset)
         mlflow.log_param("datapaths", args.datapaths)
 
         mlflow.log_param("batchsize", args.batchsize)
 
-        with open(args.chemap, "r") as fin:
-            cmap = json.load(fin)
+        if args.chemap is not None:
+            with open(args.chemap, "r") as fin:
+                cmap = json.load(fin)
+        else:
+            cmap = None
 
         testdata = loaders.PDBData(
-            args.testfile, args.distance, args.datapaths, cmap, desc="Test set"
+            args.dataset, args.distance, args.datapaths, cmap, desc=""
         )
 
         amap = utils.load_amap(args.amap)
@@ -201,28 +237,6 @@ if __name__ == "__main__":
 
         AEVC = utils.loadAEVC(args.aev)
 
-        model = utils.loadmodel(args.model)
+        models = [utils.loadmodel(m) for m in args.models]
 
-        ids_test, true_test, predicted_test = predict(model, AEVC, testloader)
-
-        plot.regplot(true_test, predicted_test, "test", path=args.outpath)
-
-        results_test = {
-            "ture": pd.Series(index=ids_test, data=true_test),
-            "predicted": pd.Series(index=ids_test, data=predicted_test),
-        }
-
-        df_test = pd.DataFrame(results_test)
-
-        test_csv = os.path.join(args.outpath, "test.csv")
-        df_test.to_csv(test_csv)
-
-        # TODO
-        # if args.trainfile is not None:
-        # true_train, predicted_train = utils.predict(model, AEVC, trainloader)
-        # plot.regplot(true_train, predicted_train, name="train")
-
-        # TODO
-        # if args.validfile is not None:
-        # true_valid, predicted_valid = utils.predict(model, AEVC, validloader)
-        # plot.regplot(true_valid, predicted_valid, name="valid")
+        evaluate(models, testloader, AEVC, args.outpath)
