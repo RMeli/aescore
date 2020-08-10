@@ -211,7 +211,8 @@ if __name__ == "__main__":
         mlflow.log_param("batchsize", args.batchsize)
 
         if args.chemap is not None:
-            cmap = json.loads(args.chemap)
+            with open(args.chemap, "r") as fin:
+                cmap = json.load(fin)
         else:
             cmap = None
 
