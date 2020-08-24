@@ -154,43 +154,13 @@ def evaluate(models, loader, AEVC, outpath, stage="predict", baseline=None):
 
 if __name__ == "__main__":
 
-    import argparse as ap
-
     import json
 
-    from ael import loaders, utils
+    from ael import loaders, utils, argparsers
 
     from torch.utils import data
 
-    parser = ap.ArgumentParser(description="Affinity prediction.")
-
-    parser.add_argument("experiment", type=str, help="MLFlow experiment")
-
-    parser.add_argument("dataset", type=str, help="Dataset file")
-
-    parser.add_argument("models", type=str, nargs="+", help="Models")
-
-    parser.add_argument("-e", "--aev", type=str, default="aevc.pth", help="Model")
-    parser.add_argument(
-        "-am", "--amap", type=str, default="amap.json", help="Atomic mapping to indices"
-    )
-    parser.add_argument(
-        "-cm", "--chemap", type=str, default=None, help="Chemical mapping"
-    )
-
-    parser.add_argument("-d", "--datapaths", type=str, default="", help="Path to data")
-
-    parser.add_argument(
-        "-r", "--distance", type=float, default=0.1, help="Residue selection distance"
-    )  # TODO: Read from test output file
-
-    parser.add_argument("-b", "--batchsize", type=int, default=64, help="Batch size")
-
-    parser.add_argument("-o", "--outpath", type=str, default="", help="Output path")
-
-    parser.add_argument("--device", type=str, default=None, help="Device")
-
-    args = parser.parse_args()
+    args = argparsers.predictparser()
 
     if args.device is None:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
