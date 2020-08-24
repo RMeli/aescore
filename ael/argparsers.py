@@ -158,6 +158,8 @@ def predictparser():
 
     parser.add_argument("--device", type=str, default=None, help="Device")
 
+    parser.add_argument("--plot", action="store_true", help="Enable plotting")
+
     args = parser.parse_args()
 
     return args

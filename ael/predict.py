@@ -21,7 +21,7 @@ def predict(model, AEVC, loader, baseline=None, device=None):
         Atomic environment vector computer
     loader:
         Data loader
-    baseline: Tuple[np.ndarray, np.ndarray, , np.ndarray]
+    baseline: Tuple[np.ndarray, np.ndarray, np.ndarray]
         Baseline for delta learning (PDB IDs, Vina, logK)
     device: torch.device
         Computation device
@@ -115,7 +115,27 @@ def predict(model, AEVC, loader, baseline=None, device=None):
     return np.array(identifiers), np.array(true), np.array(predictions)
 
 
-def evaluate(models, loader, AEVC, outpath, stage="predict", baseline=None):
+def evaluate(models, loader, AEVC, outpath: str, stage: str="predict", baseline=None, plt: bool=True) -> None:
+    """
+    Evaluate model performance on a given dataset.
+
+    Parameters
+    ----------
+    model: torch.nn.Module
+        Neural network
+    loader:
+        Data loader
+    AEVC: torchani.AEVComputer
+        Atomic environment vector computer
+    outpath: str
+        Output path
+    stage: str
+        Evaluation stage (train, validation, test or predict)
+    baseline: Tuple[np.ndarray, np.ndarray, np.ndarray]
+        Baseline for delta learning (PDB IDs, Vina, logK)
+    plt: bool
+        Plotting flag
+    """
 
     assert stage in ["train", "valid", "test", "predict"]
 
@@ -143,13 +163,14 @@ def evaluate(models, loader, AEVC, outpath, stage="predict", baseline=None):
     mlflow.log_artifact(csv)
 
     # Plot
-    plot.regplot(
-        df["true"].to_numpy(),
-        df["avg"].to_numpy(),
-        std=df["std"].to_numpy(),
-        name=stage,
-        path=outpath,
-    )
+    if plt:
+        plot.regplot(
+            df["true"].to_numpy(),
+            df["avg"].to_numpy(),
+            std=df["std"].to_numpy(),
+            name=stage,
+            path=outpath,
+        )
 
 
 if __name__ == "__main__":
@@ -209,4 +230,4 @@ if __name__ == "__main__":
 
         models = [utils.loadmodel(m) for m in args.models]
 
-        evaluate(models, testloader, AEVC, args.outpath)
+        evaluate(models, testloader, AEVC, args.outpath, stage="predict", baseline=None, plt=args.plot)
