@@ -115,7 +115,15 @@ def predict(model, AEVC, loader, baseline=None, device=None):
     return np.array(identifiers), np.array(true), np.array(predictions)
 
 
-def evaluate(models, loader, AEVC, outpath: str, stage: str="predict", baseline=None, plt: bool=True) -> None:
+def evaluate(
+    models,
+    loader,
+    AEVC,
+    outpath: str,
+    stage: str = "predict",
+    baseline=None,
+    plt: bool = True,
+) -> None:
     """
     Evaluate model performance on a given dataset.
 
@@ -230,4 +238,12 @@ if __name__ == "__main__":
 
         models = [utils.loadmodel(m) for m in args.models]
 
-        evaluate(models, testloader, AEVC, args.outpath, stage="predict", baseline=None, plt=args.plot)
+        evaluate(
+            models,
+            testloader,
+            AEVC,
+            args.outpath,
+            stage="predict",
+            baseline=None,
+            plt=args.plot,
+        )

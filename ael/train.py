@@ -409,13 +409,31 @@ if __name__ == "__main__":
                 )
 
         predict.evaluate(
-            best_models, trainloader, AEVC, args.outpath, baseline=bl, stage="train", plt=args.plot
+            best_models,
+            trainloader,
+            AEVC,
+            args.outpath,
+            baseline=bl,
+            stage="train",
+            plt=args.plot,
         )
         predict.evaluate(
-            best_models, validloader, AEVC, args.outpath, baseline=bl, stage="valid", plt=args.plot
+            best_models,
+            validloader,
+            AEVC,
+            args.outpath,
+            baseline=bl,
+            stage="valid",
+            plt=args.plot,
         )
 
         if args.testfile is not None:
             predict.evaluate(
-                best_models, testloader, AEVC, args.outpath, baseline=bl, stage="test", plt=args.plot
+                best_models,
+                testloader,
+                AEVC,
+                args.outpath,
+                baseline=bl,
+                stage="test",
+                plt=args.plot,
             )
