@@ -21,7 +21,7 @@ def predict(model, AEVC, loader, baseline=None, device=None):
         Atomic environment vector computer
     loader:
         Data loader
-    baseline: Tuple[np.ndarray, np.ndarray, , np.ndarray]
+    baseline: Tuple[np.ndarray, np.ndarray, np.ndarray]
         Baseline for delta learning (PDB IDs, Vina, logK)
     device: torch.device
         Computation device
@@ -115,7 +115,35 @@ def predict(model, AEVC, loader, baseline=None, device=None):
     return np.array(identifiers), np.array(true), np.array(predictions)
 
 
-def evaluate(models, loader, AEVC, outpath, stage="predict", baseline=None):
+def evaluate(
+    models,
+    loader,
+    AEVC,
+    outpath: str,
+    stage: str = "predict",
+    baseline=None,
+    plt: bool = True,
+) -> None:
+    """
+    Evaluate model performance on a given dataset.
+
+    Parameters
+    ----------
+    model: torch.nn.Module
+        Neural network
+    loader:
+        Data loader
+    AEVC: torchani.AEVComputer
+        Atomic environment vector computer
+    outpath: str
+        Output path
+    stage: str
+        Evaluation stage (train, validation, test or predict)
+    baseline: Tuple[np.ndarray, np.ndarray, np.ndarray]
+        Baseline for delta learning (PDB IDs, Vina, logK)
+    plt: bool
+        Plotting flag
+    """
 
     assert stage in ["train", "valid", "test", "predict"]
 
@@ -143,54 +171,25 @@ def evaluate(models, loader, AEVC, outpath, stage="predict", baseline=None):
     mlflow.log_artifact(csv)
 
     # Plot
-    plot.regplot(
-        df["true"].to_numpy(),
-        df["avg"].to_numpy(),
-        std=df["std"].to_numpy(),
-        name=stage,
-        path=outpath,
-    )
+    if plt:
+        plot.regplot(
+            df["true"].to_numpy(),
+            df["avg"].to_numpy(),
+            std=df["std"].to_numpy(),
+            name=stage,
+            path=outpath,
+        )
 
 
 if __name__ == "__main__":
 
-    import argparse as ap
-
     import json
 
-    from ael import loaders, utils
+    from ael import loaders, utils, argparsers
 
     from torch.utils import data
 
-    parser = ap.ArgumentParser(description="Affinity prediction.")
-
-    parser.add_argument("experiment", type=str, help="MLFlow experiment")
-
-    parser.add_argument("dataset", type=str, help="Dataset file")
-
-    parser.add_argument("models", type=str, nargs="+", help="Models")
-
-    parser.add_argument("-e", "--aev", type=str, default="aevc.pth", help="Model")
-    parser.add_argument(
-        "-am", "--amap", type=str, default="amap.json", help="Atomic mapping to indices"
-    )
-    parser.add_argument(
-        "-cm", "--chemap", type=str, default=None, help="Chemical mapping"
-    )
-
-    parser.add_argument("-d", "--datapaths", type=str, default="", help="Path to data")
-
-    parser.add_argument(
-        "-r", "--distance", type=float, default=0.1, help="Residue selection distance"
-    )  # TODO: Read from test output file
-
-    parser.add_argument("-b", "--batchsize", type=int, default=64, help="Batch size")
-
-    parser.add_argument("-o", "--outpath", type=str, default="", help="Output path")
-
-    parser.add_argument("--device", type=str, default=None, help="Device")
-
-    args = parser.parse_args()
+    args = argparsers.predictparser()
 
     if args.device is None:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -239,4 +238,12 @@ if __name__ == "__main__":
 
         models = [utils.loadmodel(m) for m in args.models]
 
-        evaluate(models, testloader, AEVC, args.outpath)
+        evaluate(
+            models,
+            testloader,
+            AEVC,
+            args.outpath,
+            stage="predict",
+            baseline=None,
+            plt=args.plot,
+        )

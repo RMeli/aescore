@@ -47,8 +47,8 @@ def load_pdbs(
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
 
+        # Try to load ligand
         for path in datapaths:
-
             ligfile = os.path.join(path, ligand)
             if os.path.isfile(ligfile):
                 try:
@@ -57,7 +57,15 @@ def load_pdbs(
                     print(f"Problems loading {ligfile}")
                     raise
 
-                recfile = os.path.join(path, receptor)
+                break
+        else:
+            # Runs only if nothing is found
+            raise RuntimeError(f"Could not find ligand file in {datapaths}...")
+
+        # Try to load receptor
+        for path in datapaths:
+            recfile = os.path.join(path, receptor)
+            if os.path.isfile(recfile):
                 try:
                     urec = mda.Universe(recfile)
                 except Exception:
@@ -67,9 +75,7 @@ def load_pdbs(
                 break
         else:
             # Runs only if nothing is found
-            raise RuntimeError(
-                f"Could not find ligand or receptor file in {datapaths}..."
-            )
+            raise RuntimeError(f"Could not find receptor file in {datapaths}...")
 
     lig = ulig.select_atoms("all")
     rec = urec.select_atoms("all")
