@@ -232,10 +232,20 @@ if __name__ == "__main__":
             cmap = None
 
         traindata = loaders.PDBData(
-            args.trainfile, args.distance, args.datapaths, cmap, desc="Training set"
+            args.trainfile,
+            args.distance,
+            args.datapaths,
+            cmap,
+            desc="Training set",
+            removeHs=args.removeHs,
         )
         validdata = loaders.PDBData(
-            args.validfile, args.distance, args.datapaths, cmap, desc="Validation set"
+            args.validfile,
+            args.distance,
+            args.datapaths,
+            cmap,
+            desc="Validation set",
+            removeHs=args.removeHs,
         )
 
         if cmap is not None:
@@ -247,7 +257,12 @@ if __name__ == "__main__":
         # Get combined atomic numbers map
         if args.testfile is not None:
             testdata = loaders.PDBData(
-                args.testfile, args.distance, args.datapaths, cmap, desc="Test set"
+                args.testfile,
+                args.distance,
+                args.datapaths,
+                cmap,
+                desc="Test set",
+                removeHs=args.removeHs,
             )
 
             amap = loaders.anummap(

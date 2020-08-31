@@ -216,7 +216,12 @@ if __name__ == "__main__":
             cmap = None
 
         testdata = loaders.PDBData(
-            args.dataset, args.distance, args.datapaths, cmap, desc=""
+            args.dataset,
+            args.distance,
+            args.datapaths,
+            cmap,
+            desc="",
+            removeHs=args.removeHs,
         )
 
         amap = utils.load_amap(args.amap)

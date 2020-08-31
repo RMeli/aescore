@@ -10,5 +10,6 @@ python -m ael.predict \
     -cm out/cmap.json \
     -r 3.5 \
     -b 2 \
+    --removeHs \
     --plot \
     -o out

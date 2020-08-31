@@ -93,6 +93,8 @@ if __name__ == "__main__":
 
     parser.add_argument("--device", type=str, default=None, help="Device")
 
+    parser.add_argument("--removeHs", action="store_true", help="Remove hydrogen atoms")
+
     args = parser.parse_args()
 
     if args.device is None:
@@ -129,9 +131,20 @@ if __name__ == "__main__":
                 f"(byres (around {args.distance} (resname LIG))) or (resname LIG)"
             )
 
-            # Store indices of selection for later use
-            # Needed to insert gradient as b-factors
-            sel_idxs = selection.ix
+            if args.removeHs:
+                mask = selection.elements != "H"
+
+                sel_idxs = selection.ix[mask]
+
+                elements = selection.elements[mask]
+                coordinates = selection.positions[mask]
+            else:
+                # Store indices of selection for later use
+                # Needed to insert gradient as b-factors
+                sel_idxs = selection.ix
+
+                elements = selection.elements
+                coordinates = selection.positions
 
             # Initialise gradient vector for whole system
             G = np.zeros(len(system.atoms))
@@ -140,13 +153,10 @@ if __name__ == "__main__":
             # Apply mapping from elements to atomic number
             # Apply chemical mapping (if any)
             # Apply mapping from atomic numbers to indices
-            anums = loaders.elements_to_atomicnums(selection.elements)
+            anums = loaders.elements_to_atomicnums(elements)
             if cmap is not None:
                 loaders.chemap([anums], cmap)  # Only one system
             species = loaders.anum_to_idx(anums, amap)
-
-            # Get coordinates for selection
-            coordinates = selection.positions
 
             # Torch gradient
             gradt = gradient(
