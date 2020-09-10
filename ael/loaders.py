@@ -60,7 +60,9 @@ def load_pdbs(
                 break
         else:
             # Runs only if nothing is found
-            raise RuntimeError(f"Could not find ligand file in {datapaths}...")
+            raise RuntimeError(
+                f"Could not find ligand file {ligfile} in {datapaths}..."
+            )
 
         # Try to load receptor
         for path in datapaths:
@@ -75,7 +77,9 @@ def load_pdbs(
                 break
         else:
             # Runs only if nothing is found
-            raise RuntimeError(f"Could not find receptor file in {datapaths}...")
+            raise RuntimeError(
+                f"Could not find receptor file {recfile} in {datapaths}..."
+            )
 
     lig = ulig.select_atoms("all")
     rec = urec.select_atoms("all")
