@@ -74,13 +74,24 @@ def trainparser(default="BP"):
     parser.add_argument("-RcA", type=float, default=5.2, help="Angular cutoff")
     parser.add_argument("-EtaA", type=float, default=3.5, help="Angular decay")
     parser.add_argument(
-        "-RsA", nargs="+", type=float, default=RsA_default, help="Angular radial shift",
+        "-RsA",
+        nargs="+",
+        type=float,
+        default=RsA_default,
+        help="Angular radial shift",
     )
     parser.add_argument(
-        "-TsA", nargs="+", type=float, default=TsA_default, help="Angular shift",
+        "-TsA",
+        nargs="+",
+        type=float,
+        default=TsA_default,
+        help="Angular shift",
     )
     parser.add_argument(
-        "-Zeta", type=float, default=32.0, help="Angular multiplicity",
+        "-Zeta",
+        type=float,
+        default=32.0,
+        help="Angular multiplicity",
     )
 
     parser.add_argument("-b", "--batchsize", type=int, default=64, help="Batch size")
@@ -112,6 +123,8 @@ def trainparser(default="BP"):
 
     parser.add_argument("--device", type=str, default=None, help="Device")
     parser.add_argument("--seed", type=int, default=None, help="Random seed")
+
+    parser.add_argument("--scale", action="store_true", help="Scale labels")
 
     args = parser.parse_args()
 

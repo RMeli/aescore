@@ -258,6 +258,14 @@ if __name__ == "__main__":
 
         n_species = len(amap)
 
+        if args.scale:
+            if args.testfile is None:
+                scaler = utils.labels_scaler(traindata, validdata)
+            else:
+                scaler = utils.labels_scaler(traindata, validdata, testdata)
+        else:
+            scaler = None
+
         # Transform atomic numbers to 0-based indices
         traindata.atomicnums_to_idxs(amap)
         validdata.atomicnums_to_idxs(amap)
@@ -413,6 +421,7 @@ if __name__ == "__main__":
             trainloader,
             AEVC,
             args.outpath,
+            scaler=scaler,
             baseline=bl,
             stage="train",
             plt=args.plot,
@@ -422,6 +431,7 @@ if __name__ == "__main__":
             validloader,
             AEVC,
             args.outpath,
+            scaler=scaler,
             baseline=bl,
             stage="valid",
             plt=args.plot,
@@ -433,6 +443,7 @@ if __name__ == "__main__":
                 testloader,
                 AEVC,
                 args.outpath,
+                scaler=scaler,
                 baseline=bl,
                 stage="test",
                 plt=args.plot,

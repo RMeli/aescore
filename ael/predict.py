@@ -9,7 +9,7 @@ import pandas as pd
 import os
 
 
-def predict(model, AEVC, loader, baseline=None, device=None):
+def predict(model, AEVC, loader, scaler=None, baseline=None, device=None):
     """
     Binding affinity predictions.
 
@@ -72,6 +72,10 @@ def predict(model, AEVC, loader, baseline=None, device=None):
             output = output.cpu().numpy()
             labels = labels.cpu().numpy()
 
+            if scaler is not None:
+                scaler.inverse_transform(output)
+                scaler.inverse_transform(labels)
+
             if baseline is None:
                 # Store predicted values
                 predictions += output.tolist()
@@ -121,6 +125,7 @@ def evaluate(
     AEVC,
     outpath: str,
     stage: str = "predict",
+    scaler=None,
     baseline=None,
     plt: bool = True,
 ) -> None:
@@ -150,7 +155,7 @@ def evaluate(
     results = {}
 
     for idx, model in enumerate(models):
-        ids, true, predicted = predict(model, AEVC, loader, baseline)
+        ids, true, predicted = predict(model, AEVC, loader, scaler, baseline)
 
         # Store results
         if idx == 0:

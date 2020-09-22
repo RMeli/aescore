@@ -329,8 +329,8 @@ class PDBData(data.Dataset):
 
     Notes
     -----
-    The data file contains the label in the first colum, the protein file name in
-    the second column and the ligand file name in the third colum.
+    The data file contains the label in the first column, the protein file name in
+    the second column and the ligand file name in the third column.
     """
 
     def __init__(
@@ -361,7 +361,6 @@ class PDBData(data.Dataset):
 
                 self.ids.append(os.path.dirname(recfile))
 
-                # Labels are converted to tensors in pad_collate
                 self.labels.append(float(label))
 
                 els, coords = load_pdbs_and_select(
@@ -377,6 +376,7 @@ class PDBData(data.Dataset):
                 # Coordinates are transformed to tensor here and left unchanged
                 self.coordinates.append(torch.from_numpy(coords))
 
+        self.labels = np.array(self.labels, dtype=np.float32)
         self.n = len(self.labels)
 
         self.ids = np.array(self.ids, dtype="U4")
