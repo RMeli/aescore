@@ -346,7 +346,7 @@ class PDBData(data.Dataset):
         Chemical mapping
     desc: Optional[str]
         Dataset description (for :mod:`tqdm`)
-    removeHS: bool
+    removeHs: bool
         Remove hydrogen atoms
 
     Notes
