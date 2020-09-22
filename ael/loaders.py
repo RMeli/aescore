@@ -105,7 +105,7 @@ def select(
         Protein-ligand complex
     distance: float
         Ligand-residues distance
-    removeHS: bool
+    removeHs: bool
         Remove hydrogen atoms
 
     Returns
