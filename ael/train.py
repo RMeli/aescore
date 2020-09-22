@@ -75,72 +75,65 @@ def train(
     best_valid_loss = np.inf
     best_epoch = 0
 
-    # Loop over epochs
     for epoch in tqdm.trange(epochs, desc="Training"):
 
-        # Put model in training mode
+        # Model in training mode
         model.train()
 
-        # Initialize total epoch loss
         epoch_loss: float = 0.0
 
         # Training
         for _, labels, (species, coordinates) in trainloader:
 
-            # Move everything to device
+            # Move data to device
             labels = labels.to(device)
             species = species.to(device)
             coordinates = coordinates.to(device)
 
             aevs = AEVC.forward((species, coordinates)).aevs
 
-            # Initialize the gradients to zero
             optimizer.zero_grad()
 
-            # Perform forward pass
+            # Forward pass
             output = model(species, aevs)
 
-            # Compute the loss
             # TODO: Exponential loss function?
             loss = loss_function(output, labels)
 
-            # Perform backpropagation
             loss.backward()
 
-            # Update the weights
+            # Update weights
             optimizer.step()
 
-            # Accumulate total epoch loss
             epoch_loss += loss.item()
 
         else:
             valid_loss: float = 0.0
 
-            # Put model in evaluation mode
+            # Model in evaluation mode
             model.eval()
 
             # Validation
-            # No need to track gradients during validation
-            with torch.no_grad():
+            with torch.no_grad():  # No need to track gradients
                 for _, labels, (species, coordinates) in testloader:
 
-                    # Move everything to device
+                    # Move data to device
                     labels = labels.to(device)
                     species = species.to(device)
                     coordinates = coordinates.to(device)
 
                     aevs = AEVC.forward((species, coordinates)).aevs
 
-                    # Perform forward pass
+                    # Forward pass
                     output = model(species, aevs)
 
-                    # Compute the loss
                     valid_loss += loss_function(output, labels).item()
 
-            # Normalise loss
+            # Normalise losses
             epoch_loss /= len(trainloader)
             valid_loss /= len(testloader)
 
+            # Save best model
             if valid_loss < best_valid_loss and savepath is not None:
                 # TODO: Save Optimiser
                 if idx is None:
@@ -153,7 +146,6 @@ def train(
                 best_epoch = epoch
                 best_valid_loss = valid_loss
 
-            # Store losses
             train_losses.append(epoch_loss)
             valid_losses.append(valid_loss)
 
@@ -165,7 +157,7 @@ def train(
                 mlflow.log_metric(f"train_loss_{idx}", epoch_loss, step=epoch)
                 mlflow.log_metric(f"valid_loss_{idx}", valid_loss, step=epoch)
 
-    # Save best model
+    # Track best model
     if best_epoch != 0:
         mlflow.log_artifact(modelname)
 
@@ -232,10 +224,20 @@ if __name__ == "__main__":
             cmap = None
 
         traindata = loaders.PDBData(
-            args.trainfile, args.distance, args.datapaths, cmap, desc="Training set"
+            args.trainfile,
+            args.distance,
+            args.datapaths,
+            cmap,
+            desc="Training set",
+            removeHs=args.removeHs,
         )
         validdata = loaders.PDBData(
-            args.validfile, args.distance, args.datapaths, cmap, desc="Validation set"
+            args.validfile,
+            args.distance,
+            args.datapaths,
+            cmap,
+            desc="Validation set",
+            removeHs=args.removeHs,
         )
 
         if cmap is not None:
@@ -247,7 +249,12 @@ if __name__ == "__main__":
         # Get combined atomic numbers map
         if args.testfile is not None:
             testdata = loaders.PDBData(
-                args.testfile, args.distance, args.datapaths, cmap, desc="Test set"
+                args.testfile,
+                args.distance,
+                args.datapaths,
+                cmap,
+                desc="Test set",
+                removeHs=args.removeHs,
             )
 
             amap = loaders.anummap(

@@ -60,7 +60,9 @@ def load_pdbs(
                 break
         else:
             # Runs only if nothing is found
-            raise RuntimeError(f"Could not find ligand file in {datapaths}...")
+            raise RuntimeError(
+                f"Could not find ligand file {ligfile} in {datapaths}..."
+            )
 
         # Try to load receptor
         for path in datapaths:
@@ -75,7 +77,9 @@ def load_pdbs(
                 break
         else:
             # Runs only if nothing is found
-            raise RuntimeError(f"Could not find receptor file in {datapaths}...")
+            raise RuntimeError(
+                f"Could not find receptor file {recfile} in {datapaths}..."
+            )
 
     lig = ulig.select_atoms("all")
     rec = urec.select_atoms("all")
@@ -89,7 +93,9 @@ def load_pdbs(
     return system
 
 
-def select(system: mda.Universe, distance: float) -> Tuple[np.ndarray, np.ndarray]:
+def select(
+    system: mda.Universe, distance: float, removeHs: bool = False
+) -> Tuple[np.ndarray, np.ndarray]:
     """
     Select binding site.
 
@@ -99,6 +105,8 @@ def select(system: mda.Universe, distance: float) -> Tuple[np.ndarray, np.ndarra
         Protein-ligand complex
     distance: float
         Ligand-residues distance
+    removeHs: bool
+        Remove hydrogen atoms
 
     Returns
     -------
@@ -115,12 +123,16 @@ def select(system: mda.Universe, distance: float) -> Tuple[np.ndarray, np.ndarra
         f"(byres (around {distance} (resname LIG))) or (resname LIG)"
     )
 
-    # Elements from PDB file needs MDAnalysis@develop (see #2648)
-    return resselection.elements, resselection.positions
+    if removeHs:
+        mask = resselection.elements != "H"
+        # Elements from PDB file needs MDAnalysis@develop (see #2648)
+        return resselection.elements[mask], resselection.positions[mask]
+    else:
+        return resselection.elements, resselection.positions
 
 
 def load_pdbs_and_select(
-    ligand: str, receptor: str, distance: float, datapaths
+    ligand: str, receptor: str, distance: float, datapaths, removeHs: bool = False
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Load PDB files and select binding site.
@@ -135,6 +147,8 @@ def load_pdbs_and_select(
         Ligand-residues distance
     datapaths: Union[str, List[str]]
         Paths to root directory ligand and receptors are stored
+    removeHs: bool
+        Remove hydrogen atoms
 
     Returns
     -------
@@ -148,7 +162,7 @@ def load_pdbs_and_select(
     """
     system = load_pdbs(ligand, receptor, datapaths)
 
-    return select(system, distance)
+    return select(system, distance, removeHs=removeHs)
 
 
 def elements_to_atomicnums(elements: Collection[int]) -> np.ndarray:
@@ -252,7 +266,13 @@ def _anum_to_idx(anum: int, amap: Dict[int, int]) -> int:
     int
         Zero-based index for the given atomic number
     """
-    return amap[anum]
+    try:
+        return amap[anum]
+    except KeyError:
+        raise KeyError(
+            f"Atomic number {anum} ({qcel.periodictable.to_E(anum)}) "
+            "not included in {amap}."
+        )
 
 
 # Numpy vectorisation
@@ -326,6 +346,8 @@ class PDBData(data.Dataset):
         Chemical mapping
     desc: Optional[str]
         Dataset description (for :mod:`tqdm`)
+    removeHs: bool
+        Remove hydrogen atoms
 
     Notes
     -----
@@ -340,6 +362,7 @@ class PDBData(data.Dataset):
         datapaths: Union[str, List[str]] = "",
         cmap: Optional[Union[Dict[str, str], Dict[str, List[str]]]] = None,
         desc: Optional[str] = None,
+        removeHs: bool = False,
     ) -> None:
 
         super().__init__()
@@ -365,7 +388,7 @@ class PDBData(data.Dataset):
                 self.labels.append(float(label))
 
                 els, coords = load_pdbs_and_select(
-                    ligfile, recfile, distance, datapaths
+                    ligfile, recfile, distance, datapaths, removeHs=removeHs
                 )
 
                 atomicnums = elements_to_atomicnums(els)

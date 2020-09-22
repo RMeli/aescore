@@ -92,6 +92,37 @@ def test_select(testdir, system, distance, n_ligand, n_receptor):
     [
         # Distance 0.0 produces a segmentation fault (see #2656)
         ("1a4r", 0.1, 28, 0),
+        ("1a4r", 2.5, 28, 45),
+        ("1a4w", 0.1, 42, 0),
+        ("1a4w", 2.5, 42, 31),
+    ],
+)
+def test_select_removeHs(testdir, system, distance, n_ligand, n_receptor):
+    """
+    Selection compared with PyMol selection:
+
+        sele byres PROTEIN within DISTANCE of LIGAND
+
+    Hydrogen atoms were counted by hand and removed
+    (H* does not select 1HD1 while *H* also selects CH2).
+    """
+
+    ligname = os.path.join(system, f"{system}_ligand.pdb")
+    recname = os.path.join(system, f"{system}_protein.pdb")
+
+    system = loaders.load_pdbs(ligname, recname, testdir)
+
+    atoms, coordinates = loaders.select(system, distance, removeHs=True)
+
+    # assert len(atoms) == n_ligand + n_receptor
+    assert coordinates.shape == (n_ligand + n_receptor, 3)
+
+
+@pytest.mark.parametrize(
+    "system, distance, n_ligand, n_receptor",
+    [
+        # Distance 0.0 produces a segmentation fault (see #2656)
+        ("1a4r", 0.1, 28, 0),
         ("1a4r", 1.8, 28, 10),
         ("1a4r", 2.0, 28, 42),
         ("1a4r", 2.5, 28, 91),
@@ -115,6 +146,37 @@ def test_load_pdbs_and_select(testdir, system, distance, n_ligand, n_receptor):
 
     atoms, coordinates = loaders.load_pdbs_and_select(
         ligname, recname, distance, testdir
+    )
+
+    # assert len(atoms) == n_ligand + n_receptor
+    assert coordinates.shape == (n_ligand + n_receptor, 3)
+
+
+@pytest.mark.parametrize(
+    "system, distance, n_ligand, n_receptor",
+    [
+        # Distance 0.0 produces a segmentation fault (see #2656)
+        ("1a4r", 0.1, 28, 0),
+        ("1a4r", 2.5, 28, 45),
+        ("1a4w", 0.1, 42, 0),
+        ("1a4w", 2.5, 42, 31),
+    ],
+)
+def test_load_pdbs_and_select_removeHs(testdir, system, distance, n_ligand, n_receptor):
+    """
+    Selection compared with PyMol selection:
+
+        sele byres PROTEIN within DISTANCE of LIGAND
+
+    Hydrogen atoms were counted by hand and removed
+    (H* does not select 1HD1 while *H* also selects CH2).
+    """
+
+    ligname = os.path.join(system, f"{system}_ligand.pdb")
+    recname = os.path.join(system, f"{system}_protein.pdb")
+
+    atoms, coordinates = loaders.load_pdbs_and_select(
+        ligname, recname, distance, testdir, removeHs=True
     )
 
     # assert len(atoms) == n_ligand + n_receptor
@@ -149,6 +211,48 @@ def test_elements_to_atomicnums(els, zs):
 def test_pdbloader(testdata, testdir, distance, n1_atoms, n2_atoms):
 
     data = loaders.PDBData(testdata, distance, testdir)
+
+    batch_size = 1
+
+    # Transform atomic numbers to species
+    amap = loaders.anummap(data.species)
+    data.atomicnums_to_idxs(amap)
+
+    loader = torch.utils.data.DataLoader(
+        data, batch_size=batch_size, shuffle=False, collate_fn=loaders.pad_collate
+    )
+    iloader = iter(loader)
+
+    n_atoms_iter = iter([n1_atoms, n2_atoms])
+
+    for ids, label, (species, coordinates) in iloader:
+
+        n_atoms = next(n_atoms_iter)
+
+        assert isinstance(ids, np.ndarray)
+        assert ids.shape == (batch_size,)
+
+        assert isinstance(label, torch.Tensor)
+        assert label.shape == (batch_size,)
+
+        assert isinstance(species, torch.Tensor)
+        assert species.shape == (batch_size, n_atoms)
+
+        assert isinstance(coordinates, torch.Tensor)
+        assert coordinates.shape == (batch_size, n_atoms, 3)
+
+
+@pytest.mark.parametrize(
+    "distance, n1_atoms, n2_atoms",
+    [
+        # Distance 0.0 produces a segmentation fault (see #2656)
+        (0.1, 28 + 0, 42 + 0),
+        (2.5, 28 + 45, 42 + 31),
+    ],
+)
+def test_pdbloader_removeHs(testdata, testdir, distance, n1_atoms, n2_atoms):
+
+    data = loaders.PDBData(testdata, distance, testdir, removeHs=True)
 
     batch_size = 1
 
