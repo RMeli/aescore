@@ -44,7 +44,7 @@ def predict(model, AEVC, loader, baseline=None, device=None):
     # Move model to device
     model.to(device)
 
-    # Put model in evaluation mode
+    # Model in evaluation mode
     model.eval()
 
     true = []
@@ -68,15 +68,12 @@ def predict(model, AEVC, loader, baseline=None, device=None):
             # Forward pass
             output = model(species, aevs)
 
-            # Transform output and labels to numpy arrays
             output = output.cpu().numpy()
             labels = labels.cpu().numpy()
 
             if baseline is None:
-                # Store predicted values
+                # Store true and predicted values
                 predictions += output.tolist()
-
-                # Store true values
                 true += labels.tolist()
             else:  # Delta learning
                 # Store predicted values (delta) plus baseline
