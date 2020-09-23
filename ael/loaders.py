@@ -10,6 +10,8 @@ import torch.nn as nn
 import tqdm
 from torch.utils import data
 
+# from openbabel import pybel
+
 
 def load_pdbs(
     ligand: str, receptor: str, datapaths: Union[str, List[str]]
@@ -91,6 +93,68 @@ def load_pdbs(
     system = mda.core.universe.Merge(lig, rec)
 
     return system
+
+
+def _universe_from_openbabel(obmol):
+    n_atoms = len(obmol.atoms)
+    n_residues = 1  # LIG
+
+    u = mda.Universe.empty(
+        n_atoms,
+        n_residues,
+        atom_resindex=[0] * n_atoms,
+        residue_segindex=[0] * n_residues,
+        trajectory=True,
+    )
+
+    elements = []
+    coordinates = np.zeros((n_atoms, 3))
+    for idx, atom in enumerate(obmol):
+        elements.append(qcel.periodictable.to_E(atom.atomicnum))
+        coordinates[idx, :] = atom.coords
+
+    u.add_TopologyAttr("elements", elements)
+    u.add_TopologyAttr("type", elements)
+    u.add_TopologyAttr("resname", ["LIG"] * n_residues)
+
+    u.atoms.positions = coordinates
+
+    return u
+
+
+def load_sdfs(
+    ligand: str, receptor: str, datapaths: Union[str, List[str]]
+) -> mda.Universe:
+    """
+    Load ligand and receptor PDB files in a single mda.Universe
+
+    Parameters
+    ----------
+    ligand: str
+        Ligand file (SDF)
+    receptor: str
+        Receptor file (PDB)
+    datapaths: Union[str, List[str]]
+        Paths to root directory ligand and receptors are stored
+
+    Returns
+    -------
+    mda.Universe
+        MDAnalysis universe for the protein-ligand complex
+
+    Notes
+    -----
+    This function allows to load multiple ligands from SDF files for a single receptor.
+    This is useful for docking and virtual screening, where multiple ligands are
+    associated to a single target.
+
+    The ligand is treated as a single entity named LIG. (:code:`resname LIG`).
+
+    The folders containing ligand and receptor files data are defined by
+    :code:`datapaths`.
+    """
+
+    pass
 
 
 def select(

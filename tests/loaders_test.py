@@ -4,6 +4,8 @@ import MDAnalysis as mda
 import numpy as np
 import pytest
 import torch
+from openbabel import pybel
+import qcelemental as qcel
 
 from ael import loaders
 
@@ -40,6 +42,26 @@ def test_load_pdbs_fail_lig(testdir):
 
     with pytest.raises(Exception):
         system = loaders.load_pdbs(ligname, recname, testdir)
+
+
+def test_universe_from_openbabel(testdir):
+    ligfile = os.path.join(testdir, "1a4r", "1a4r_docking.sdf")
+
+    obmols = [obmol for obmol in pybel.readfile("sdf", ligfile)]
+
+    assert len(obmols) == 9
+
+    for obmol in obmols:
+        u = loaders._universe_from_openbabel(obmol)
+
+        n_atoms = len(u.atoms)
+
+        assert n_atoms == 36
+
+        for idx, atom in enumerate(obmol):
+            assert np.allclose(u.atoms.positions[idx], atom.coords)
+            assert qcel.periodictable.to_Z(u.atoms.elements[idx]) == atom.atomicnum
+            assert u.atoms.elements[idx] == u.atoms.types[idx]
 
 
 def test_load_pdbs_fail_rec(testdir):
