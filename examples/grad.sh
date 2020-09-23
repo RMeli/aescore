@@ -10,4 +10,5 @@ python -m ael.grad \
     -e out/aevc.pth \
     -am out/amap.json \
     -cm out/cmap.json \
+    --removeHs \
     -o pdbs

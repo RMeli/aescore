@@ -126,6 +126,8 @@ def trainparser(default="BP"):
 
     parser.add_argument("--scale", action="store_true", help="Scale labels")
 
+    parser.add_argument("--removeHs", action="store_true", help="Remove hydrogen atoms")
+
     args = parser.parse_args()
 
     return args
@@ -172,6 +174,8 @@ def predictparser():
     parser.add_argument("--device", type=str, default=None, help="Device")
 
     parser.add_argument("--plot", action="store_true", help="Enable plotting")
+
+    parser.add_argument("--removeHs", action="store_true", help="Remove hydrogen atoms")
 
     args = parser.parse_args()
 

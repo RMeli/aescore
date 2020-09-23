@@ -16,6 +16,7 @@ python -m ael.train \
     -e 10 \
     -c 3 \
     -cm '{"X": ["P", "S"]}' \
+    --removeHs \
     --scale \
     -o out \
     --plot \
