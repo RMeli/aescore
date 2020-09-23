@@ -44,8 +44,9 @@ def test_load_pdbs_fail_lig(testdir):
         system = loaders.load_pdbs(ligname, recname, testdir)
 
 
-def test_universe_from_openbabel(testdir):
-    ligfile = os.path.join(testdir, "1a4r", "1a4r_docking.sdf")
+@pytest.mark.parametrize("system, n_atoms", [("1a4r", 36), ("1a4w", 48)])
+def test_universe_from_openbabel(testdir, system, n_atoms):
+    ligfile = os.path.join(testdir, system, f"{system}_docking.sdf")
 
     obmols = [obmol for obmol in pybel.readfile("sdf", ligfile)]
 
@@ -54,9 +55,7 @@ def test_universe_from_openbabel(testdir):
     for obmol in obmols:
         u = loaders._universe_from_openbabel(obmol)
 
-        n_atoms = len(u.atoms)
-
-        assert n_atoms == 36
+        assert len(u.atoms) == n_atoms
 
         for idx, atom in enumerate(obmol):
             assert np.allclose(u.atoms.positions[idx], atom.coords)
