@@ -44,6 +44,17 @@ def test_load_pdbs_fail_lig(testdir):
         system = loaders.load_pdbs(ligname, recname, testdir)
 
 
+def test_load_pdbs_fail_rec(testdir):
+
+    system = "1a4r"
+
+    ligname = os.path.join(system, f"{system}_ligand.pdb")
+    recname = os.path.join(system, f"{system}_FAIL.pdb")
+
+    with pytest.raises(Exception):
+        system = loaders.load_pdbs(ligname, recname, testdir)
+
+
 @pytest.mark.parametrize("system, n_atoms", [("1a4r", 36), ("1a4w", 48)])
 def test_universe_from_openbabel(testdir, system, n_atoms):
     ligfile = os.path.join(testdir, system, f"{system}_docking.sdf")
@@ -61,17 +72,35 @@ def test_universe_from_openbabel(testdir, system, n_atoms):
             assert np.allclose(u.atoms.positions[idx], atom.coords)
             assert qcel.periodictable.to_Z(u.atoms.elements[idx]) == atom.atomicnum
             assert u.atoms.elements[idx] == u.atoms.types[idx]
+            assert u.atoms.resnames[idx] == "LIG"
 
 
-def test_load_pdbs_fail_rec(testdir):
+@pytest.mark.parametrize(
+    "system, n_ligand, n_receptor", [("1a4r", 36, 6009), ("1a4w", 48, 4289)]
+)
+def test_load_sdfs(testdir, system, n_ligand, n_receptor):
 
-    system = "1a4r"
+    ligname = os.path.join(system, f"{system}_docking.sdf")
+    ligfile = os.path.join(testdir, ligname)
 
-    ligname = os.path.join(system, f"{system}_ligand.pdb")
-    recname = os.path.join(system, f"{system}_FAIL.pdb")
+    recname = os.path.join(system, f"{system}_protein.pdb")
 
-    with pytest.raises(Exception):
-        system = loaders.load_pdbs(ligname, recname, testdir)
+    obmols = [obmol for obmol in pybel.readfile("sdf", ligfile)]
+
+    systems = loaders.load_sdfs(ligname, recname, testdir)
+
+    assert len(systems) == 9
+
+    for system, obmol in zip(systems, obmols):
+        assert len(system.atoms) == n_ligand + n_receptor
+
+        lig = system.select_atoms("resname LIG")
+
+        assert len(lig.atoms) == n_ligand
+
+        # Check ligand coordinates
+        for idx, atom in enumerate(obmol):
+            assert np.allclose(lig.atoms.positions[idx], atom.coords)
 
 
 @pytest.mark.parametrize(
@@ -104,7 +133,7 @@ def test_select(testdir, system, distance, n_ligand, n_receptor):
 
     atoms, coordinates = loaders.select(system, distance)
 
-    # assert len(atoms) == n_ligand + n_receptor
+    assert len(atoms) == n_ligand + n_receptor
     assert coordinates.shape == (n_ligand + n_receptor, 3)
 
 

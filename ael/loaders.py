@@ -9,8 +9,7 @@ import torch
 import torch.nn as nn
 import tqdm
 from torch.utils import data
-
-# from openbabel import pybel
+from openbabel import pybel
 
 
 def load_pdbs(
@@ -40,6 +39,8 @@ def load_pdbs(
     The folders containing ligand and receptor files data are defined by
     :code:`datapaths`.
     """
+    assert os.path.splitext(ligand)[-1].lower() == ".pdb"
+    assert os.path.splitext(receptor)[-1].lower() == ".pdb"
 
     # Ensure list
     if isinstance(datapaths, str):
@@ -124,7 +125,7 @@ def _universe_from_openbabel(obmol):
 
 def load_sdfs(
     ligand: str, receptor: str, datapaths: Union[str, List[str]]
-) -> mda.Universe:
+) -> List[mda.Universe]:
     """
     Load ligand and receptor PDB files in a single mda.Universe
 
@@ -154,7 +155,60 @@ def load_sdfs(
     :code:`datapaths`.
     """
 
-    pass
+    assert os.path.splitext(ligand)[-1].lower() == ".sdf"
+    assert os.path.splitext(receptor)[-1].lower() == ".pdb"
+
+    # Ensure list
+    if isinstance(datapaths, str):
+        datapaths = [datapaths]
+
+    # TODO: Redirect warning instead of suppressing
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+
+        # Try to load ligand
+        for path in datapaths:
+            ligfile = os.path.join(path, ligand)
+            if os.path.isfile(ligfile):
+                try:
+                    uligs = [
+                        _universe_from_openbabel(obmol)
+                        for obmol in pybel.readfile("sdf", ligfile)
+                    ]
+                except Exception:
+                    print(f"Problems loading {ligfile}")
+                    raise
+
+                # Ligand file found in current path, no need to search further
+                break
+        else:
+            raise RuntimeError(
+                f"Could not find ligand file {ligfile} in {datapaths}..."
+            )
+
+        # Try to load receptor
+        for path in datapaths:
+            recfile = os.path.join(path, receptor)
+            if os.path.isfile(recfile):
+                try:
+                    urec = mda.Universe(recfile)
+                except Exception:
+                    print(f"Problems loading {recfile}")
+                    raise
+
+                break
+        else:
+            raise RuntimeError(
+                f"Could not find receptor file {recfile} in {datapaths}..."
+            )
+
+    ligs = [ulig.select_atoms("all") for ulig in uligs]
+    rec = urec.select_atoms("all")
+
+    # Merge receptor and ligand in single universe
+    systems = [mda.core.universe.Merge(lig, rec) for lig in ligs]
+
+    return systems
 
 
 def select(
