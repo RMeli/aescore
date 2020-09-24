@@ -234,6 +234,36 @@ def test_load_pdbs_and_select_removeHs(testdir, system, distance, n_ligand, n_re
 
 
 @pytest.mark.parametrize(
+    "system, distance, n_ligand",
+    [
+        # Distance 0.0 produces a segmentation fault (see #2656)
+        ("1a4r", 0.1, 28),
+        ("1a4w", 0.1, 42),
+    ],
+)
+def test_load_sdfs_and_select_removeHs(testdir, system, distance, n_ligand):
+    """
+    Selection compared with PyMol selection:
+
+        sele byres PROTEIN within DISTANCE of LIGAND
+
+    Hydrogen atoms were counted by hand and removed
+    (H* does not select 1HD1 while *H* also selects CH2).
+    """
+
+    ligname = os.path.join(system, f"{system}_docking.sdf")
+    recname = os.path.join(system, f"{system}_protein.pdb")
+
+    atoms_and_coordinates = loaders.load_sdfs_and_select(
+        ligname, recname, distance, testdir, removeHs=True
+    )
+
+    for atoms, coordinates in atoms_and_coordinates:
+        assert len(atoms) == n_ligand
+        assert coordinates.shape == (n_ligand, 3)
+
+
+@pytest.mark.parametrize(
     "els, zs",
     [
         (["H", "H"], [1, 1]),

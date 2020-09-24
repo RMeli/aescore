@@ -140,7 +140,7 @@ def load_sdfs(
 
     Returns
     -------
-    mda.Universe
+    Lit[mda.Universe]
         MDAnalysis universe for the protein-ligand complex
 
     Notes
@@ -281,6 +281,40 @@ def load_pdbs_and_select(
     system = load_pdbs(ligand, receptor, datapaths)
 
     return select(system, distance, removeHs=removeHs)
+
+
+def load_sdfs_and_select(
+    ligand: str, receptor: str, distance: float, datapaths, removeHs: bool = False
+) -> List[Tuple[np.ndarray, np.ndarray]]:
+    """
+    Load PDB files and select binding site.
+
+    Parameters
+    ----------
+    ligand: str
+        Ligand file (SDF)
+    receptor: str
+        Receptor file (PDB)
+    distance: float
+        Ligand-residues distance
+    datapaths: Union[str, List[str]]
+        Paths to root directory ligand and receptors are stored
+    removeHs: bool
+        Remove hydrogen atoms
+
+    Returns
+    -------
+    List[Tuple[np.ndarray, np.ndarray]]
+        Array of elements and array of cartesian coordinate for ligand and protein
+        atoms within the binding site
+
+    Notes
+    -----
+    Combines :func:`load_pdbs` and :func:`select`.
+    """
+    systems = load_sdfs(ligand, receptor, datapaths)
+
+    return [select(system, distance, removeHs=removeHs) for system in systems]
 
 
 def elements_to_atomicnums(elements: Collection[int]) -> np.ndarray:
