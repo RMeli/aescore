@@ -482,86 +482,17 @@ def chemap(
             atomicnums[idx][mask] = to_element
 
 
-class PDBData(data.Dataset):
-    """
-    PDB dataset.
-
-    Parameters
-    ----------
-    fname: str
-        Data file name
-    distance: float
-        Ligand-residues distance
-    datapaths: Union[str, List[str]]
-        Paths to root directory ligand and receptors are stored
-    cmap: Optional[Union[Dict[str, str], Dict[str, List[str]]]]
-        Chemical mapping
-    desc: Optional[str]
-        Dataset description (for :mod:`tqdm`)
-    removeHs: bool
-        Remove hydrogen atoms
-
-    Notes
-    -----
-    The data file contains the label in the first column, the protein file name in
-    the second column and the ligand file name in the third column.
-    """
-
-    def __init__(
-        self,
-        fname: str,
-        distance: float,
-        datapaths: Union[str, List[str]] = "",
-        cmap: Optional[Union[Dict[str, str], Dict[str, List[str]]]] = None,
-        desc: Optional[str] = None,
-        removeHs: bool = False,
-    ) -> None:
-
+class Data(data.Dataset):
+    def __init__(self) -> None:
         super().__init__()
 
-        if desc is None:
-            desc = "Loading PDB data"
-
-        self.species = []
-        self.coordinates = []
-        self.labels = []
-
-        self.ids = []
-
-        self.cmap = cmap
-
-        with open(fname, "r") as f:
-            for line in tqdm.tqdm(f, desc=desc):
-                label, recfile, ligfile = line.split()
-
-                self.ids.append(os.path.dirname(recfile))
-
-                self.labels.append(float(label))
-
-                els, coords = load_pdbs_and_select(
-                    ligfile, recfile, distance, datapaths, removeHs=removeHs
-                )
-
-                atomicnums = elements_to_atomicnums(els)
-
-                # Species are converted to tensors in _atomicnums_to_idx
-                # Species are transformed to 0-based indices in _atomicnums_to_idx
-                self.species.append(atomicnums)
-
-                # Coordinates are transformed to tensor here and left unchanged
-                self.coordinates.append(torch.from_numpy(coords))
-
-        self.labels = np.array(self.labels, dtype=np.float32)
-        self.n = len(self.labels)
-
-        self.ids = np.array(self.ids, dtype="U4")
-
-        self.species_are_indices = False
-
-        # Map one element into another
-        # This allows to reduce the complexity of the model
-        if cmap is not None:
-            self._chemap(cmap)
+        # TODO: Better way of doing avoiding mypy complaints?
+        self.n: int = -1
+        self.ids: List[str] = []
+        self.labels: List[float] = []
+        self.species: List[torch.Tensor] = []
+        self.coordinates: List[torch.Tensor] = []
+        self.species_are_indices: bool = False
 
     def __len__(self) -> int:
         """
@@ -641,3 +572,99 @@ class PDBData(data.Dataset):
                 self.species[idx] = torch.from_numpy(indices)
 
             self.species_are_indices = True
+
+
+class PDBData(Data):
+    """
+    PDB dataset.
+
+    Parameters
+    ----------
+    fname: str
+        Data file name
+    distance: float
+        Ligand-residues distance
+    datapaths: Union[str, List[str]]
+        Paths to root directory ligand and receptors are stored
+    cmap: Optional[Union[Dict[str, str], Dict[str, List[str]]]]
+        Chemical mapping
+    desc: Optional[str]
+        Dataset description (for :mod:`tqdm`)
+    removeHs: bool
+        Remove hydrogen atoms
+
+    Notes
+    -----
+    The data file contains the label in the first column, the protein file name in
+    the second column and the ligand file name in the third column.
+    """
+
+    def __init__(
+        self,
+        fname: str,
+        distance: float,
+        datapaths: Union[str, List[str]] = "",
+        cmap: Optional[Union[Dict[str, str], Dict[str, List[str]]]] = None,
+        desc: Optional[str] = None,
+        removeHs: bool = False,
+    ):
+
+        super().__init__()
+
+        self._load(fname, distance, datapaths, cmap, desc, removeHs)
+
+    def _load(
+        self,
+        fname: str,
+        distance: float,
+        datapaths: Union[str, List[str]] = "",
+        cmap: Optional[Union[Dict[str, str], Dict[str, List[str]]]] = None,
+        desc: Optional[str] = None,
+        removeHs: bool = False,
+    ) -> None:
+
+        super().__init__()
+
+        if desc is None:
+            desc = "Loading PDB data"
+
+        self.species = []
+        self.coordinates = []
+        self.labels = []
+
+        self.ids = []
+
+        self.cmap = cmap
+
+        with open(fname, "r") as f:
+            for line in tqdm.tqdm(f, desc=desc):
+                label, recfile, ligfile = line.split()
+
+                self.ids.append(os.path.dirname(recfile))
+
+                self.labels.append(float(label))
+
+                els, coords = load_pdbs_and_select(
+                    ligfile, recfile, distance, datapaths, removeHs=removeHs
+                )
+
+                atomicnums = elements_to_atomicnums(els)
+
+                # Species are converted to tensors in _atomicnums_to_idx
+                # Species are transformed to 0-based indices in _atomicnums_to_idx
+                self.species.append(atomicnums)
+
+                # Coordinates are transformed to tensor here and left unchanged
+                self.coordinates.append(torch.from_numpy(coords))
+
+        self.labels = np.array(self.labels, dtype=np.float32)
+        self.n = len(self.labels)
+
+        self.ids = np.array(self.ids, dtype="U4")
+
+        self.species_are_indices = False
+
+        # Map one element into another
+        # This allows to reduce the complexity of the model
+        if cmap is not None:
+            self._chemap(cmap)
