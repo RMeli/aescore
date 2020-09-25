@@ -323,6 +323,54 @@ def test_pdbloader(testdata, testdir, distance, n1_atoms, n2_atoms):
 
 
 @pytest.mark.parametrize(
+    "distance, n_atoms, f_label, l_label",
+    [
+        # Distance 0.0 produces a segmentation fault (see #2656)
+        (0.1, [36 + 0, 48 + 0], [78.490, 69.210], [98.870, 79.210]),
+    ],
+)
+def test_vsloader(testvsdata, testdir, distance, n_atoms, f_label, l_label):
+
+    data = loaders.VSData(testvsdata, distance, testdir, labelspath=testdir)
+
+    # One batch here corresponds to one target
+    batch_size = 9
+
+    # Transform atomic numbers to species
+    amap = loaders.anummap(data.species)
+    data.atomicnums_to_idxs(amap)
+
+    loader = torch.utils.data.DataLoader(
+        data, batch_size=batch_size, shuffle=False, collate_fn=loaders.pad_collate
+    )
+    iloader = iter(loader)
+
+    n_atoms_iter = iter(n_atoms)
+    f_label_iter = iter(f_label)  # Iterator over first label (in batch)
+    l_label_iter = iter(l_label)  # Iterator over last label (in batch)
+
+    for ids, label, (species, coordinates) in iloader:
+
+        n_atoms = next(n_atoms_iter)
+        f_label = next(f_label_iter)
+        l_label = next(l_label_iter)
+
+        assert isinstance(ids, np.ndarray)
+        assert ids.shape == (batch_size,)
+
+        assert isinstance(label, torch.Tensor)
+        assert label.shape == (batch_size,)
+        assert label[0].item() == pytest.approx(f_label)
+        assert label[-1].item() == pytest.approx(l_label)
+
+        assert isinstance(species, torch.Tensor)
+        assert species.shape == (batch_size, n_atoms)
+
+        assert isinstance(coordinates, torch.Tensor)
+        assert coordinates.shape == (batch_size, n_atoms, 3)
+
+
+@pytest.mark.parametrize(
     "distance, n1_atoms, n2_atoms",
     [
         # Distance 0.0 produces a segmentation fault (see #2656)
