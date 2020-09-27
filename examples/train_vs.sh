@@ -4,10 +4,11 @@ mkdir -p out
 
 python -m ael.train \
     Train \
-    ../tests/testdata/systems.dat \
-    ../tests/testdata/systems.dat \
-    -t ../tests/testdata/systems.dat \
+    ../tests/testdata/systemsvs.dat \
+    ../tests/testdata/systemsvs.dat \
+    -t ../tests/testdata/systemsvs.dat \
     -d ../tests/testdata \
+    -vs ../tests/testdata \
     -r 3.5 \
     -p 0.5 \
     -lr 0.0005 \
@@ -17,6 +18,7 @@ python -m ael.train \
     -c 3 \
     -cm '{"X": ["P", "S"]}' \
     --removeHs \
+    --scale \
     -o out \
     --plot \
     --seed 42

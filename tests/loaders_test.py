@@ -357,6 +357,8 @@ def test_vsloader(testvsdata, testdir, distance, n_atoms, f_label, l_label):
 
         assert isinstance(ids, np.ndarray)
         assert ids.shape == (batch_size,)
+        assert ids[0][4:] == "_pose_1"
+        assert ids[-1][4:] == "_pose_9"
 
         assert isinstance(label, torch.Tensor)
         assert label.shape == (batch_size,)

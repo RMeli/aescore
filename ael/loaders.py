@@ -773,7 +773,7 @@ class VSData(Data):
         self.labels = np.array(self.labels, dtype=np.float32)
         self.n = len(self.labels)
 
-        self.ids = np.array(self.ids, dtype="U4")
+        self.ids = np.array(self.ids, dtype="U")
 
         self.species_are_indices = False
 
