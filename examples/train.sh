@@ -17,6 +17,7 @@ python -m ael.train \
     -c 3 \
     -cm '{"X": ["P", "S"]}' \
     --removeHs \
+    --scale \
     -o out \
     --plot \
     --seed 42
