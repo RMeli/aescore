@@ -123,7 +123,7 @@ def _universe_from_openbabel(obmol):
     return u
 
 
-def load_sdfs(
+def load_mols(
     ligand: str, receptor: str, datapaths: Union[str, List[str]]
 ) -> List[mda.Universe]:
     """
@@ -155,7 +155,9 @@ def load_sdfs(
     :code:`datapaths`.
     """
 
-    assert os.path.splitext(ligand)[-1].lower() == ".sdf"
+    ext = os.path.splitext(ligand)[-1].lower()[1:]
+
+    assert ext == "sdf" or ext == "mol2"
     assert os.path.splitext(receptor)[-1].lower() == ".pdb"
 
     # Ensure list
@@ -173,7 +175,7 @@ def load_sdfs(
                 try:
                     uligs = [
                         _universe_from_openbabel(obmol)
-                        for obmol in pybel.readfile("sdf", ligfile)
+                        for obmol in pybel.readfile(ext, ligfile)
                     ]
                 except Exception:
                     print(f"Problems loading {ligfile}")
@@ -283,7 +285,7 @@ def load_pdbs_and_select(
     return select(system, distance, removeHs=removeHs)
 
 
-def load_sdfs_and_select(
+def load_mols_and_select(
     ligand: str, receptor: str, distance: float, datapaths, removeHs: bool = False
 ) -> List[Tuple[np.ndarray, np.ndarray]]:
     """
@@ -312,7 +314,7 @@ def load_sdfs_and_select(
     -----
     Combines :func:`load_pdbs` and :func:`select`.
     """
-    systems = load_sdfs(ligand, receptor, datapaths)
+    systems = load_mols(ligand, receptor, datapaths)
 
     return [select(system, distance, removeHs=removeHs) for system in systems]
 
@@ -751,7 +753,7 @@ class VSData(Data):
                     os.path.join(labelspath, labelfile), usecols=0, dtype="U"
                 )
                 labels = np.loadtxt(os.path.join(labelspath, labelfile), usecols=1)
-                systems = load_sdfs_and_select(
+                systems = load_mols_and_select(
                     ligfile, recfile, distance, datapaths, removeHs=removeHs
                 )
 

@@ -75,19 +75,20 @@ def test_universe_from_openbabel(testdir, system, n_atoms):
             assert u.atoms.resnames[idx] == "LIG"
 
 
+@pytest.mark.parametrize("ext", ["sdf", "mol2"])
 @pytest.mark.parametrize(
     "system, n_ligand, n_receptor", [("1a4r", 36, 6009), ("1a4w", 48, 4289)]
 )
-def test_load_sdfs(testdir, system, n_ligand, n_receptor):
+def test_load_mols(testdir, system, n_ligand, n_receptor, ext):
 
-    ligname = os.path.join(system, f"{system}_docking.sdf")
+    ligname = os.path.join(system, f"{system}_docking.{ext}")
     ligfile = os.path.join(testdir, ligname)
 
     recname = os.path.join(system, f"{system}_protein.pdb")
 
-    obmols = [obmol for obmol in pybel.readfile("sdf", ligfile)]
+    obmols = [obmol for obmol in pybel.readfile(ext, ligfile)]
 
-    systems = loaders.load_sdfs(ligname, recname, testdir)
+    systems = loaders.load_mols(ligname, recname, testdir)
 
     assert len(systems) == 9
 
@@ -233,6 +234,7 @@ def test_load_pdbs_and_select_removeHs(testdir, system, distance, n_ligand, n_re
     assert coordinates.shape == (n_ligand + n_receptor, 3)
 
 
+@pytest.mark.parametrize("ext", ["sdf", "mol2"])
 @pytest.mark.parametrize(
     "system, distance, n_ligand",
     [
@@ -241,7 +243,7 @@ def test_load_pdbs_and_select_removeHs(testdir, system, distance, n_ligand, n_re
         ("1a4w", 0.1, 42),
     ],
 )
-def test_load_sdfs_and_select_removeHs(testdir, system, distance, n_ligand):
+def test_load_mols_and_select_removeHs(testdir, system, distance, n_ligand, ext):
     """
     Selection compared with PyMol selection:
 
@@ -251,10 +253,10 @@ def test_load_sdfs_and_select_removeHs(testdir, system, distance, n_ligand):
     (H* does not select 1HD1 while *H* also selects CH2).
     """
 
-    ligname = os.path.join(system, f"{system}_docking.sdf")
+    ligname = os.path.join(system, f"{system}_docking.{ext}")
     recname = os.path.join(system, f"{system}_protein.pdb")
 
-    atoms_and_coordinates = loaders.load_sdfs_and_select(
+    atoms_and_coordinates = loaders.load_mols_and_select(
         ligname, recname, distance, testdir, removeHs=True
     )
 
