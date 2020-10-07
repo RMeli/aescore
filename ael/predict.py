@@ -8,6 +8,8 @@ import pandas as pd
 
 import os
 
+from typing import Union
+
 
 def predict(model, AEVC, loader, scaler=None, baseline=None, device=None):
     """
@@ -217,14 +219,25 @@ if __name__ == "__main__":
         else:
             cmap = None
 
-        testdata = loaders.PDBData(
-            args.dataset,
-            args.distance,
-            args.datapaths,
-            cmap,
-            desc="",
-            removeHs=args.removeHs,
-        )
+        if args.vscreening is None:
+            testdata: Union[loaders.PDBData, loaders.VSData] = loaders.PDBData(
+                args.dataset,
+                args.distance,
+                args.datapaths,
+                cmap,
+                desc="",
+                removeHs=args.removeHs,
+            )
+        else:
+            testdata = loaders.VSData(
+                args.testfile,
+                args.distance,
+                args.datapaths,
+                cmap,
+                desc="",
+                removeHs=args.removeHs,
+                labelspath=args.vscreening,
+            )
 
         amap = utils.load_amap(args.amap)
 

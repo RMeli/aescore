@@ -692,6 +692,8 @@ class VSData(Data):
         Remove hydrogen atoms
     labelspath: str
         Path to labels files
+    idsuffix:
+        Suffix to add to the PDB ID (from the receptor name)
 
     Notes
     -----
@@ -702,7 +704,10 @@ class VSData(Data):
     or virtual screening tasks. All poses are against the same target, specified in
     the second column.
 
-    If only one pose is present in the ligand
+    :code:`idsuffix` allows to specify a suffix to the PDB ID extracted from the
+    receptor. This is used when a line in :code:`fname` does not contain a label
+    file with multiple systems (decoys) but a single numerical label corresponding to
+    a single system (usually the active molecule or crystallographic pose).
     """
 
     def __init__(
@@ -729,6 +734,7 @@ class VSData(Data):
         desc: Optional[str] = None,
         removeHs: bool = False,
         labelspath: str = "",
+        idsuffix: str = "ligand",
     ) -> None:
 
         super().__init__()
@@ -749,13 +755,26 @@ class VSData(Data):
                 labelfile, recfile, ligfile = line.split()
 
                 pdbid = os.path.dirname(recfile)
-                ids = np.loadtxt(
-                    os.path.join(labelspath, labelfile), usecols=0, dtype="U"
-                )
-                labels = np.loadtxt(os.path.join(labelspath, labelfile), usecols=1)
-                systems = load_mols_and_select(
-                    ligfile, recfile, distance, datapaths, removeHs=removeHs
-                )
+
+                # Support mixed file or numerical label
+                try:
+                    labels = [float(labelfile)]
+                    ids = [idsuffix]
+
+                    systems = [
+                        load_pdbs_and_select(
+                            ligfile, recfile, distance, datapaths, removeHs=removeHs
+                        )
+                    ]
+
+                except ValueError:  # labelfile contains a file path, not a label
+                    ids = np.loadtxt(
+                        os.path.join(labelspath, labelfile), usecols=0, dtype="U"
+                    )
+                    labels = np.loadtxt(os.path.join(labelspath, labelfile), usecols=1)
+                    systems = load_mols_and_select(
+                        ligfile, recfile, distance, datapaths, removeHs=removeHs
+                    )
 
                 assert len(ids) == len(labels) == len(systems)
 

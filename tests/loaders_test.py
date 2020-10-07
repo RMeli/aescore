@@ -328,7 +328,7 @@ def test_pdbloader(testdata, testdir, distance, n1_atoms, n2_atoms):
     "distance, n_atoms, f_label, l_label",
     [
         # Distance 0.0 produces a segmentation fault (see #2656)
-        (0.1, [36 + 0, 48 + 0], [78.490, 69.210], [98.870, 79.210]),
+        (0.1, [36 + 0, 48 + 0], [78.490, 69.210], [12.34, 43.21]),
     ],
 )
 def test_vsloader(testvsdata, testdir, distance, n_atoms, f_label, l_label):
@@ -336,7 +336,7 @@ def test_vsloader(testvsdata, testdir, distance, n_atoms, f_label, l_label):
     data = loaders.VSData(testvsdata, distance, testdir, labelspath=testdir)
 
     # One batch here corresponds to one target
-    batch_size = 9
+    batch_size = 10
 
     # Transform atomic numbers to species
     amap = loaders.anummap(data.species)
@@ -360,7 +360,8 @@ def test_vsloader(testvsdata, testdir, distance, n_atoms, f_label, l_label):
         assert isinstance(ids, np.ndarray)
         assert ids.shape == (batch_size,)
         assert ids[0][4:] == "_pose_1"
-        assert ids[-1][4:] == "_pose_9"
+        assert ids[-2][4:] == "_pose_9"
+        assert ids[-1][4:] == "_ligand"
 
         assert isinstance(label, torch.Tensor)
         assert label.shape == (batch_size,)

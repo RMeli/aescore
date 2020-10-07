@@ -185,6 +185,14 @@ def predictparser():
 
     parser.add_argument("--removeHs", action="store_true", help="Remove hydrogen atoms")
 
+    parser.add_argument(
+        "-vs",
+        "--vscreening",
+        default=None,
+        type=str,
+        help="Label path for virtual screening",
+    )
+
     args = parser.parse_args()
 
     return args
