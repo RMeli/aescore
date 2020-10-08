@@ -779,7 +779,11 @@ class VSData(Data):
                 assert len(ids) == len(labels) == len(systems)
 
                 for ID, label, (els, coords) in zip(ids, labels, systems):
-                    self.ids.append(f"{pdbid}_{ID}")
+                    if pdbid in ID:  # PDB code of target already in ID (pose name)
+                        self.ids.append(ID)
+                    else:  # Prepend PDB code of target to avoid ambiguities
+                        self.ids.append(f"{pdbid}_{ID}")
+
                     self.labels.append(label)
 
                     atomicnums = elements_to_atomicnums(els)
