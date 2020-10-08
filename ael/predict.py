@@ -230,7 +230,7 @@ if __name__ == "__main__":
             )
         else:
             testdata = loaders.VSData(
-                args.testfile,
+                args.dataset,
                 args.distance,
                 args.datapaths,
                 cmap,
