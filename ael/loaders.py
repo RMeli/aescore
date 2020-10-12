@@ -719,11 +719,14 @@ class VSData(Data):
         desc: Optional[str] = None,
         removeHs: bool = False,
         labelspath: str = "",
+        idsuffix="ligand",
     ):
 
         super().__init__()
 
-        self._load(fname, distance, datapaths, cmap, desc, removeHs, labelspath)
+        self._load(
+            fname, distance, datapaths, cmap, desc, removeHs, labelspath, idsuffix
+        )
 
     def _load(
         self,
