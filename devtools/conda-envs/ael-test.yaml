@@ -9,7 +9,9 @@ dependencies:
   - numpy
   - scipy
   - scikit-learn
+
   - qcelemental
+  - openbabel
 
   - matplotlib
   - seaborn
