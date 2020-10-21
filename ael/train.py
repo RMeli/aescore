@@ -7,7 +7,7 @@ import tqdm
 
 from ael import utils
 
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple, List, Union
 
 
 def train(
@@ -223,22 +223,42 @@ if __name__ == "__main__":
         else:
             cmap = None
 
-        traindata = loaders.PDBData(
-            args.trainfile,
-            args.distance,
-            args.datapaths,
-            cmap,
-            desc="Training set",
-            removeHs=args.removeHs,
-        )
-        validdata = loaders.PDBData(
-            args.validfile,
-            args.distance,
-            args.datapaths,
-            cmap,
-            desc="Validation set",
-            removeHs=args.removeHs,
-        )
+        if args.vscreening is None:
+            traindata: Union[loaders.PDBData, loaders.VSData] = loaders.PDBData(
+                args.trainfile,
+                args.distance,
+                args.datapaths,
+                cmap,
+                desc="Training set",
+                removeHs=args.removeHs,
+            )
+            validdata: Union[loaders.PDBData, loaders.VSData] = loaders.PDBData(
+                args.validfile,
+                args.distance,
+                args.datapaths,
+                cmap,
+                desc="Validation set",
+                removeHs=args.removeHs,
+            )
+        else:
+            traindata = loaders.VSData(
+                args.trainfile,
+                args.distance,
+                args.datapaths,
+                cmap,
+                desc="Training set",
+                removeHs=args.removeHs,
+                labelspath=args.vscreening,
+            )
+            validdata = loaders.VSData(
+                args.validfile,
+                args.distance,
+                args.datapaths,
+                cmap,
+                desc="Validation set",
+                removeHs=args.removeHs,
+                labelspath=args.vscreening,
+            )
 
         if cmap is not None:
             path = os.path.join(args.outpath, "cmap.json")
@@ -248,14 +268,25 @@ if __name__ == "__main__":
 
         # Get combined atomic numbers map
         if args.testfile is not None:
-            testdata = loaders.PDBData(
-                args.testfile,
-                args.distance,
-                args.datapaths,
-                cmap,
-                desc="Test set",
-                removeHs=args.removeHs,
-            )
+            if args.vscreening is None:
+                testdata: Union[loaders.PDBData, loaders.VSData] = loaders.PDBData(
+                    args.testfile,
+                    args.distance,
+                    args.datapaths,
+                    cmap,
+                    desc="Test set",
+                    removeHs=args.removeHs,
+                )
+            else:
+                testdata = loaders.VSData(
+                    args.testfile,
+                    args.distance,
+                    args.datapaths,
+                    cmap,
+                    desc="Test set",
+                    removeHs=args.removeHs,
+                    labelspath=args.vscreening,
+                )
 
             amap = loaders.anummap(
                 traindata.species, validdata.species, testdata.species
@@ -264,6 +295,14 @@ if __name__ == "__main__":
             amap = loaders.anummap(traindata.species, validdata.species)
 
         n_species = len(amap)
+
+        if args.scale:
+            if args.testfile is None:
+                scaler = utils.labels_scaler(traindata, validdata)
+            else:
+                scaler = utils.labels_scaler(traindata, validdata, testdata)
+        else:
+            scaler = None
 
         # Transform atomic numbers to 0-based indices
         traindata.atomicnums_to_idxs(amap)
@@ -420,6 +459,7 @@ if __name__ == "__main__":
             trainloader,
             AEVC,
             args.outpath,
+            scaler=scaler,
             baseline=bl,
             stage="train",
             plt=args.plot,
@@ -429,6 +469,7 @@ if __name__ == "__main__":
             validloader,
             AEVC,
             args.outpath,
+            scaler=scaler,
             baseline=bl,
             stage="valid",
             plt=args.plot,
@@ -440,6 +481,7 @@ if __name__ == "__main__":
                 testloader,
                 AEVC,
                 args.outpath,
+                scaler=scaler,
                 baseline=bl,
                 stage="test",
                 plt=args.plot,

@@ -4,6 +4,8 @@ import MDAnalysis as mda
 import numpy as np
 import pytest
 import torch
+from openbabel import pybel
+import qcelemental as qcel
 
 from ael import loaders
 
@@ -53,6 +55,55 @@ def test_load_pdbs_fail_rec(testdir):
         system = loaders.load_pdbs(ligname, recname, testdir)
 
 
+@pytest.mark.parametrize("system, n_atoms", [("1a4r", 36), ("1a4w", 48)])
+def test_universe_from_openbabel(testdir, system, n_atoms):
+    ligfile = os.path.join(testdir, system, f"{system}_docking.sdf")
+
+    obmols = [obmol for obmol in pybel.readfile("sdf", ligfile)]
+
+    assert len(obmols) == 9
+
+    for obmol in obmols:
+        u = loaders._universe_from_openbabel(obmol)
+
+        assert len(u.atoms) == n_atoms
+
+        for idx, atom in enumerate(obmol):
+            assert np.allclose(u.atoms.positions[idx], atom.coords)
+            assert qcel.periodictable.to_Z(u.atoms.elements[idx]) == atom.atomicnum
+            assert u.atoms.elements[idx] == u.atoms.types[idx]
+            assert u.atoms.resnames[idx] == "LIG"
+
+
+@pytest.mark.parametrize("ext", ["sdf", "mol2"])
+@pytest.mark.parametrize(
+    "system, n_ligand, n_receptor", [("1a4r", 36, 6009), ("1a4w", 48, 4289)]
+)
+def test_load_mols(testdir, system, n_ligand, n_receptor, ext):
+
+    ligname = os.path.join(system, f"{system}_docking.{ext}")
+    ligfile = os.path.join(testdir, ligname)
+
+    recname = os.path.join(system, f"{system}_protein.pdb")
+
+    obmols = [obmol for obmol in pybel.readfile(ext, ligfile)]
+
+    systems = loaders.load_mols(ligname, recname, testdir)
+
+    assert len(systems) == 9
+
+    for system, obmol in zip(systems, obmols):
+        assert len(system.atoms) == n_ligand + n_receptor
+
+        lig = system.select_atoms("resname LIG")
+
+        assert len(lig.atoms) == n_ligand
+
+        # Check ligand coordinates
+        for idx, atom in enumerate(obmol):
+            assert np.allclose(lig.atoms.positions[idx], atom.coords)
+
+
 @pytest.mark.parametrize(
     "system, distance, n_ligand, n_receptor",
     [
@@ -83,7 +134,7 @@ def test_select(testdir, system, distance, n_ligand, n_receptor):
 
     atoms, coordinates = loaders.select(system, distance)
 
-    # assert len(atoms) == n_ligand + n_receptor
+    assert len(atoms) == n_ligand + n_receptor
     assert coordinates.shape == (n_ligand + n_receptor, 3)
 
 
@@ -183,6 +234,37 @@ def test_load_pdbs_and_select_removeHs(testdir, system, distance, n_ligand, n_re
     assert coordinates.shape == (n_ligand + n_receptor, 3)
 
 
+@pytest.mark.parametrize("ext", ["sdf", "mol2"])
+@pytest.mark.parametrize(
+    "system, distance, n_ligand",
+    [
+        # Distance 0.0 produces a segmentation fault (see #2656)
+        ("1a4r", 0.1, 28),
+        ("1a4w", 0.1, 42),
+    ],
+)
+def test_load_mols_and_select_removeHs(testdir, system, distance, n_ligand, ext):
+    """
+    Selection compared with PyMol selection:
+
+        sele byres PROTEIN within DISTANCE of LIGAND
+
+    Hydrogen atoms were counted by hand and removed
+    (H* does not select 1HD1 while *H* also selects CH2).
+    """
+
+    ligname = os.path.join(system, f"{system}_docking.{ext}")
+    recname = os.path.join(system, f"{system}_protein.pdb")
+
+    atoms_and_coordinates = loaders.load_mols_and_select(
+        ligname, recname, distance, testdir, removeHs=True
+    )
+
+    for atoms, coordinates in atoms_and_coordinates:
+        assert len(atoms) == n_ligand
+        assert coordinates.shape == (n_ligand, 3)
+
+
 @pytest.mark.parametrize(
     "els, zs",
     [
@@ -234,6 +316,57 @@ def test_pdbloader(testdata, testdir, distance, n1_atoms, n2_atoms):
 
         assert isinstance(label, torch.Tensor)
         assert label.shape == (batch_size,)
+
+        assert isinstance(species, torch.Tensor)
+        assert species.shape == (batch_size, n_atoms)
+
+        assert isinstance(coordinates, torch.Tensor)
+        assert coordinates.shape == (batch_size, n_atoms, 3)
+
+
+@pytest.mark.parametrize(
+    "distance, n_atoms, f_label, l_label",
+    [
+        # Distance 0.0 produces a segmentation fault (see #2656)
+        (0.1, [36 + 0, 48 + 0], [78.490, 69.210], [12.34, 43.21]),
+    ],
+)
+def test_vsloader(testvsdata, testdir, distance, n_atoms, f_label, l_label):
+
+    data = loaders.VSData(testvsdata, distance, testdir, labelspath=testdir)
+
+    # One batch here corresponds to one target
+    batch_size = 10
+
+    # Transform atomic numbers to species
+    amap = loaders.anummap(data.species)
+    data.atomicnums_to_idxs(amap)
+
+    loader = torch.utils.data.DataLoader(
+        data, batch_size=batch_size, shuffle=False, collate_fn=loaders.pad_collate
+    )
+    iloader = iter(loader)
+
+    n_atoms_iter = iter(n_atoms)
+    f_label_iter = iter(f_label)  # Iterator over first label (in batch)
+    l_label_iter = iter(l_label)  # Iterator over last label (in batch)
+
+    for ids, label, (species, coordinates) in iloader:
+
+        n_atoms = next(n_atoms_iter)
+        f_label = next(f_label_iter)
+        l_label = next(l_label_iter)
+
+        assert isinstance(ids, np.ndarray)
+        assert ids.shape == (batch_size,)
+        assert ids[0][4:] == "_pose_1"
+        assert ids[-2][4:] == "_pose_9"
+        assert ids[-1][4:] == "_ligand"
+
+        assert isinstance(label, torch.Tensor)
+        assert label.shape == (batch_size,)
+        assert label[0].item() == pytest.approx(f_label)
+        assert label[-1].item() == pytest.approx(l_label)
 
         assert isinstance(species, torch.Tensor)
         assert species.shape == (batch_size, n_atoms)
@@ -414,11 +547,13 @@ def test_pdbloader_species_cmap_toX(testdata, testdir):
 
     # TODO: Access to data loader is quite ugly... NamedTuple?
     assert np.allclose(
-        data[0][2][0], np.zeros(28),  # Species for first ligand  # Element X maps to 0
+        data[0][2][0],
+        np.zeros(28),  # Species for first ligand  # Element X maps to 0
     )
 
     assert np.allclose(
-        data[1][2][0], np.zeros(42),  # Species for second ligand  # Element X maps to 0
+        data[1][2][0],
+        np.zeros(42),  # Species for second ligand  # Element X maps to 0
     )
 
     batch_size = 2
@@ -441,10 +576,16 @@ def test_pdbloader_species_cmap_toX(testdata, testdir):
     assert species.shape == (batch_size, 42)  # Ligand 1a4w is the largest
 
     # Test ligand 1a4r (padded with -1)
-    assert torch.allclose(species[0, :], torch.tensor([0] * 28 + 14 * [-1]),)
+    assert torch.allclose(
+        species[0, :],
+        torch.tensor([0] * 28 + 14 * [-1]),
+    )
 
     # Test ligand 1a4w (no padding)
-    assert torch.allclose(species[1, :], torch.zeros(42, dtype=int),)
+    assert torch.allclose(
+        species[1, :],
+        torch.zeros(42, dtype=int),
+    )
 
 
 def test_pdbloader_species_cmap_OtoS(testdata, testdir):

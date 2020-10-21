@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 import tqdm
 from torch.utils import data
+from openbabel import pybel
 
 
 def load_pdbs(
@@ -38,6 +39,8 @@ def load_pdbs(
     The folders containing ligand and receptor files data are defined by
     :code:`datapaths`.
     """
+    assert os.path.splitext(ligand)[-1].lower() == ".pdb"
+    assert os.path.splitext(receptor)[-1].lower() == ".pdb"
 
     # Ensure list
     if isinstance(datapaths, str):
@@ -91,6 +94,123 @@ def load_pdbs(
     system = mda.core.universe.Merge(lig, rec)
 
     return system
+
+
+def _universe_from_openbabel(obmol):
+    n_atoms = len(obmol.atoms)
+    n_residues = 1  # LIG
+
+    u = mda.Universe.empty(
+        n_atoms,
+        n_residues,
+        atom_resindex=[0] * n_atoms,
+        residue_segindex=[0] * n_residues,
+        trajectory=True,
+    )
+
+    elements = []
+    coordinates = np.zeros((n_atoms, 3))
+    for idx, atom in enumerate(obmol):
+        elements.append(qcel.periodictable.to_E(atom.atomicnum))
+        coordinates[idx, :] = atom.coords
+
+    u.add_TopologyAttr("elements", elements)
+    u.add_TopologyAttr("type", elements)
+    u.add_TopologyAttr("resname", ["LIG"] * n_residues)
+
+    u.atoms.positions = coordinates
+
+    return u
+
+
+def load_mols(
+    ligand: str, receptor: str, datapaths: Union[str, List[str]]
+) -> List[mda.Universe]:
+    """
+    Load ligand and receptor PDB files in a single mda.Universe
+
+    Parameters
+    ----------
+    ligand: str
+        Ligand file (SDF)
+    receptor: str
+        Receptor file (PDB)
+    datapaths: Union[str, List[str]]
+        Paths to root directory ligand and receptors are stored
+
+    Returns
+    -------
+    Lit[mda.Universe]
+        MDAnalysis universe for the protein-ligand complex
+
+    Notes
+    -----
+    This function allows to load multiple ligands from SDF files for a single receptor.
+    This is useful for docking and virtual screening, where multiple ligands are
+    associated to a single target.
+
+    The ligand is treated as a single entity named LIG. (:code:`resname LIG`).
+
+    The folders containing ligand and receptor files data are defined by
+    :code:`datapaths`.
+    """
+
+    ext = os.path.splitext(ligand)[-1].lower()[1:]
+
+    assert ext == "sdf" or ext == "mol2"
+    assert os.path.splitext(receptor)[-1].lower() == ".pdb"
+
+    # Ensure list
+    if isinstance(datapaths, str):
+        datapaths = [datapaths]
+
+    # TODO: Redirect warning instead of suppressing
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+
+        # Try to load ligand
+        for path in datapaths:
+            ligfile = os.path.join(path, ligand)
+            if os.path.isfile(ligfile):
+                try:
+                    uligs = [
+                        _universe_from_openbabel(obmol)
+                        for obmol in pybel.readfile(ext, ligfile)
+                    ]
+                except Exception:
+                    print(f"Problems loading {ligfile}")
+                    raise
+
+                # Ligand file found in current path, no need to search further
+                break
+        else:
+            raise RuntimeError(
+                f"Could not find ligand file {ligfile} in {datapaths}..."
+            )
+
+        # Try to load receptor
+        for path in datapaths:
+            recfile = os.path.join(path, receptor)
+            if os.path.isfile(recfile):
+                try:
+                    urec = mda.Universe(recfile)
+                except Exception:
+                    print(f"Problems loading {recfile}")
+                    raise
+
+                break
+        else:
+            raise RuntimeError(
+                f"Could not find receptor file {recfile} in {datapaths}..."
+            )
+
+    ligs = [ulig.select_atoms("all") for ulig in uligs]
+    rec = urec.select_atoms("all")
+
+    # Merge receptor and ligand in single universe
+    systems = [mda.core.universe.Merge(lig, rec) for lig in ligs]
+
+    return systems
 
 
 def select(
@@ -163,6 +283,40 @@ def load_pdbs_and_select(
     system = load_pdbs(ligand, receptor, datapaths)
 
     return select(system, distance, removeHs=removeHs)
+
+
+def load_mols_and_select(
+    ligand: str, receptor: str, distance: float, datapaths, removeHs: bool = False
+) -> List[Tuple[np.ndarray, np.ndarray]]:
+    """
+    Load PDB files and select binding site.
+
+    Parameters
+    ----------
+    ligand: str
+        Ligand file (SDF)
+    receptor: str
+        Receptor file (PDB)
+    distance: float
+        Ligand-residues distance
+    datapaths: Union[str, List[str]]
+        Paths to root directory ligand and receptors are stored
+    removeHs: bool
+        Remove hydrogen atoms
+
+    Returns
+    -------
+    List[Tuple[np.ndarray, np.ndarray]]
+        Array of elements and array of cartesian coordinate for ligand and protein
+        atoms within the binding site
+
+    Notes
+    -----
+    Combines :func:`load_pdbs` and :func:`select`.
+    """
+    systems = load_mols(ligand, receptor, datapaths)
+
+    return [select(system, distance, removeHs=removeHs) for system in systems]
 
 
 def elements_to_atomicnums(elements: Collection[int]) -> np.ndarray:
@@ -330,86 +484,17 @@ def chemap(
             atomicnums[idx][mask] = to_element
 
 
-class PDBData(data.Dataset):
-    """
-    PDB dataset.
-
-    Parameters
-    ----------
-    fname: str
-        Data file name
-    distance: float
-        Ligand-residues distance
-    datapaths: Union[str, List[str]]
-        Paths to root directory ligand and receptors are stored
-    cmap: Optional[Union[Dict[str, str], Dict[str, List[str]]]]
-        Chemical mapping
-    desc: Optional[str]
-        Dataset description (for :mod:`tqdm`)
-    removeHs: bool
-        Remove hydrogen atoms
-
-    Notes
-    -----
-    The data file contains the label in the first colum, the protein file name in
-    the second column and the ligand file name in the third colum.
-    """
-
-    def __init__(
-        self,
-        fname: str,
-        distance: float,
-        datapaths: Union[str, List[str]] = "",
-        cmap: Optional[Union[Dict[str, str], Dict[str, List[str]]]] = None,
-        desc: Optional[str] = None,
-        removeHs: bool = False,
-    ) -> None:
-
+class Data(data.Dataset):
+    def __init__(self) -> None:
         super().__init__()
 
-        if desc is None:
-            desc = "Loading PDB data"
-
-        self.species = []
-        self.coordinates = []
-        self.labels = []
-
-        self.ids = []
-
-        self.cmap = cmap
-
-        with open(fname, "r") as f:
-            for line in tqdm.tqdm(f, desc=desc):
-                label, recfile, ligfile = line.split()
-
-                self.ids.append(os.path.dirname(recfile))
-
-                # Labels are converted to tensors in pad_collate
-                self.labels.append(float(label))
-
-                els, coords = load_pdbs_and_select(
-                    ligfile, recfile, distance, datapaths, removeHs=removeHs
-                )
-
-                atomicnums = elements_to_atomicnums(els)
-
-                # Species are converted to tensors in _atomicnums_to_idx
-                # Species are transformed to 0-based indices in _atomicnums_to_idx
-                self.species.append(atomicnums)
-
-                # Coordinates are transformed to tensor here and left unchanged
-                self.coordinates.append(torch.from_numpy(coords))
-
-        self.n = len(self.labels)
-
-        self.ids = np.array(self.ids, dtype="U4")
-
-        self.species_are_indices = False
-
-        # Map one element into another
-        # This allows to reduce the complexity of the model
-        if cmap is not None:
-            self._chemap(cmap)
+        # TODO: Better way to avoid mypy complaints?
+        self.n: int = -1
+        self.ids: List[str] = []
+        self.labels: List[float] = []
+        self.species: List[torch.Tensor] = []
+        self.coordinates: List[torch.Tensor] = []
+        self.species_are_indices: bool = False
 
     def __len__(self) -> int:
         """
@@ -489,3 +574,238 @@ class PDBData(data.Dataset):
                 self.species[idx] = torch.from_numpy(indices)
 
             self.species_are_indices = True
+
+
+class PDBData(Data):
+    """
+    PDB dataset.
+
+    Parameters
+    ----------
+    fname: str
+        Data file name
+    distance: float
+        Ligand-residues distance
+    datapaths: Union[str, List[str]]
+        Paths to root directory ligand and receptors are stored
+    cmap: Optional[Union[Dict[str, str], Dict[str, List[str]]]]
+        Chemical mapping
+    desc: Optional[str]
+        Dataset description (for :mod:`tqdm`)
+    removeHs: bool
+        Remove hydrogen atoms
+
+    Notes
+    -----
+    The data file contains the label in the first column, the protein file name in
+    the second column and the ligand file name in the third column.
+    """
+
+    def __init__(
+        self,
+        fname: str,
+        distance: float,
+        datapaths: Union[str, List[str]] = "",
+        cmap: Optional[Union[Dict[str, str], Dict[str, List[str]]]] = None,
+        desc: Optional[str] = None,
+        removeHs: bool = False,
+    ):
+
+        super().__init__()
+
+        self._load(fname, distance, datapaths, cmap, desc, removeHs)
+
+    def _load(
+        self,
+        fname: str,
+        distance: float,
+        datapaths: Union[str, List[str]] = "",
+        cmap: Optional[Union[Dict[str, str], Dict[str, List[str]]]] = None,
+        desc: Optional[str] = None,
+        removeHs: bool = False,
+    ) -> None:
+
+        super().__init__()
+
+        if desc is None:
+            desc = "Loading PDB data"
+
+        self.species = []
+        self.coordinates = []
+        self.labels = []
+
+        self.ids = []
+
+        self.cmap = cmap
+
+        with open(fname, "r") as f:
+            for line in tqdm.tqdm(f, desc=desc):
+                label, recfile, ligfile = line.split()
+
+                self.ids.append(os.path.dirname(recfile))
+
+                self.labels.append(float(label))
+
+                els, coords = load_pdbs_and_select(
+                    ligfile, recfile, distance, datapaths, removeHs=removeHs
+                )
+
+                atomicnums = elements_to_atomicnums(els)
+
+                # Species are converted to tensors in _atomicnums_to_idx
+                # Species are transformed to 0-based indices in _atomicnums_to_idx
+                self.species.append(atomicnums)
+
+                # Coordinates are transformed to tensor here and left unchanged
+                self.coordinates.append(torch.from_numpy(coords))
+
+        self.labels = np.array(self.labels, dtype=np.float32)
+        self.n = len(self.labels)
+
+        self.ids = np.array(self.ids, dtype="U4")
+
+        self.species_are_indices = False
+
+        # Map one element into another
+        # This allows to reduce the complexity of the model
+        if cmap is not None:
+            self._chemap(cmap)
+
+
+class VSData(Data):
+    """
+    Dataset for docking and virtual screening.
+
+    Parameters
+    ----------
+    fname: str
+        Data file name
+    distance: float
+        Ligand-residues distance
+    datapaths: Union[str, List[str]]
+        Paths to root directory ligand and receptors are stored
+    cmap: Optional[Union[Dict[str, str], Dict[str, List[str]]]]
+        Chemical mapping
+    desc: Optional[str]
+        Dataset description (for :mod:`tqdm`)
+    removeHs: bool
+        Remove hydrogen atoms
+    labelspath: str
+        Path to labels files
+    idsuffix:
+        Suffix to add to the PDB ID (from the receptor name)
+
+    Notes
+    -----
+    The data file contains the file with labels in the first column, the protein file
+    name in the second column and the ligand file name in the third column.
+
+    The ligand file is assumed to be a SDF file with one or multiple poses, for docking
+    or virtual screening tasks. All poses are against the same target, specified in
+    the second column.
+
+    :code:`idsuffix` allows to specify a suffix to the PDB ID extracted from the
+    receptor. This is used when a line in :code:`fname` does not contain a label
+    file with multiple systems (decoys) but a single numerical label corresponding to
+    a single system (usually the active molecule or crystallographic pose).
+    """
+
+    def __init__(
+        self,
+        fname: str,
+        distance: float,
+        datapaths: Union[str, List[str]] = "",
+        cmap: Optional[Union[Dict[str, str], Dict[str, List[str]]]] = None,
+        desc: Optional[str] = None,
+        removeHs: bool = False,
+        labelspath: str = "",
+        idsuffix="ligand",
+    ):
+
+        super().__init__()
+
+        self._load(
+            fname, distance, datapaths, cmap, desc, removeHs, labelspath, idsuffix
+        )
+
+    def _load(
+        self,
+        fname: str,
+        distance: float,
+        datapaths: Union[str, List[str]] = "",
+        cmap: Optional[Union[Dict[str, str], Dict[str, List[str]]]] = None,
+        desc: Optional[str] = None,
+        removeHs: bool = False,
+        labelspath: str = "",
+        idsuffix: str = "ligand",
+    ) -> None:
+
+        super().__init__()
+
+        if desc is None:
+            desc = "Loading PDB data"
+
+        self.species = []
+        self.coordinates = []
+        self.labels = []
+
+        self.ids = []
+
+        self.cmap = cmap
+
+        with open(fname, "r") as f:
+            for line in tqdm.tqdm(f, desc=desc):
+                labelfile, recfile, ligfile = line.split()
+
+                pdbid = os.path.dirname(recfile)
+
+                # Support mixed file or numerical label
+                try:
+                    labels = [float(labelfile)]
+                    ids = [idsuffix]
+
+                    systems = [
+                        load_pdbs_and_select(
+                            ligfile, recfile, distance, datapaths, removeHs=removeHs
+                        )
+                    ]
+
+                except ValueError:  # labelfile contains a file path, not a label
+                    ids = np.loadtxt(
+                        os.path.join(labelspath, labelfile), usecols=0, dtype="U"
+                    )
+                    labels = np.loadtxt(os.path.join(labelspath, labelfile), usecols=1)
+                    systems = load_mols_and_select(
+                        ligfile, recfile, distance, datapaths, removeHs=removeHs
+                    )
+
+                assert len(ids) == len(labels) == len(systems)
+
+                for ID, label, (els, coords) in zip(ids, labels, systems):
+                    if pdbid in ID:  # PDB code of target already in ID (pose name)
+                        self.ids.append(ID)
+                    else:  # Prepend PDB code of target to avoid ambiguities
+                        self.ids.append(f"{pdbid}_{ID}")
+
+                    self.labels.append(label)
+
+                    atomicnums = elements_to_atomicnums(els)
+
+                    # Species are converted to tensors in _atomicnums_to_idx
+                    # Species are transformed to 0-based indices in _atomicnums_to_idx
+                    self.species.append(atomicnums)
+
+                    # Coordinates are transformed to tensor here and left unchanged
+                    self.coordinates.append(torch.from_numpy(coords))
+
+        self.labels = np.array(self.labels, dtype=np.float32)
+        self.n = len(self.labels)
+
+        self.ids = np.array(self.ids, dtype="U")
+
+        self.species_are_indices = False
+
+        # Map one element into another
+        # This allows to reduce the complexity of the model
+        if cmap is not None:
+            self._chemap(cmap)

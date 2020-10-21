@@ -8,8 +8,10 @@ import pandas as pd
 
 import os
 
+from typing import Union
 
-def predict(model, AEVC, loader, baseline=None, device=None):
+
+def predict(model, AEVC, loader, scaler=None, baseline=None, device=None):
     """
     Binding affinity predictions.
 
@@ -71,6 +73,10 @@ def predict(model, AEVC, loader, baseline=None, device=None):
             output = output.cpu().numpy()
             labels = labels.cpu().numpy()
 
+            if scaler is not None:
+                scaler.inverse_transform(output)
+                scaler.inverse_transform(labels)
+
             if baseline is None:
                 # Store true and predicted values
                 predictions += output.tolist()
@@ -118,6 +124,7 @@ def evaluate(
     AEVC,
     outpath: str,
     stage: str = "predict",
+    scaler=None,
     baseline=None,
     plt: bool = True,
 ) -> None:
@@ -147,7 +154,7 @@ def evaluate(
     results = {}
 
     for idx, model in enumerate(models):
-        ids, true, predicted = predict(model, AEVC, loader, baseline)
+        ids, true, predicted = predict(model, AEVC, loader, scaler, baseline)
 
         # Store results
         if idx == 0:
@@ -212,14 +219,25 @@ if __name__ == "__main__":
         else:
             cmap = None
 
-        testdata = loaders.PDBData(
-            args.dataset,
-            args.distance,
-            args.datapaths,
-            cmap,
-            desc="",
-            removeHs=args.removeHs,
-        )
+        if args.vscreening is None:
+            testdata: Union[loaders.PDBData, loaders.VSData] = loaders.PDBData(
+                args.dataset,
+                args.distance,
+                args.datapaths,
+                cmap,
+                desc="",
+                removeHs=args.removeHs,
+            )
+        else:
+            testdata = loaders.VSData(
+                args.dataset,
+                args.distance,
+                args.datapaths,
+                cmap,
+                desc="",
+                removeHs=args.removeHs,
+                labelspath=args.vscreening,
+            )
 
         amap = utils.load_amap(args.amap)
 

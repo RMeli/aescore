@@ -6,7 +6,7 @@ import torch
 import torchani
 from torch import nn
 
-from ael import models, utils
+from ael import models, utils, loaders
 
 np.random.seed(42)
 torch.manual_seed(42)
@@ -114,3 +114,32 @@ def test_saveamap_loadamap(tmpdir):
 
     for k in amap.keys():
         assert amap[k] == amapl[k]
+
+
+def test_labels_scaler_single(testdata, testdir):
+
+    data = loaders.PDBData(testdata, 3.5, testdir)
+
+    labels = data.labels.copy()
+
+    scaler = utils.labels_scaler(data)
+
+    assert np.allclose(data.labels, [1.0, -1.0])
+    assert np.allclose(labels, scaler.inverse_transform(data.labels))
+
+
+def test_labels_scaler(testdata, testdir):
+
+    data1 = loaders.PDBData(testdata, 3.5, testdir)
+    data2 = loaders.PDBData(testdata, 3.5, testdir)
+
+    labels1 = data1.labels.copy()
+    labels2 = data2.labels.copy()
+
+    scaler = utils.labels_scaler(data1, data2)
+
+    assert np.allclose(data1.labels, [1.0, -1.0])
+    assert np.allclose(data2.labels, [1.0, -1.0])
+
+    assert np.allclose(labels1, scaler.inverse_transform(data1.labels))
+    assert np.allclose(labels2, scaler.inverse_transform(data2.labels))

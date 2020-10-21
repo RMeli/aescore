@@ -6,6 +6,7 @@ import numpy as np
 import torch
 import torchani
 from torch import nn
+from sklearn.preprocessing import StandardScaler
 
 from ael import constants, models
 
@@ -182,3 +183,34 @@ def load_amap(fname) -> Dict[int, int]:
 
 def vina_to_pK(score):
     return -np.log10(np.exp(score / constants.R / constants.T))
+
+
+def labels_scaler(*args):
+    """
+    Scale labels using sklearn.preprocessing.StandardScaler.
+
+    Returns
+    -------
+    sklearn.preprocessing.StandardScaler
+        Return scaler for future use (especially with :code:`inverse_transform`)
+
+    Notes
+    -----
+    This function expects :class:`PDBData` as input.
+
+    The fit is performed on the first argument. All other arguments are transformed
+    according to the same fit.
+    """
+    n = len(args)
+    assert n >= 1
+
+    scaler = StandardScaler(copy=False)
+
+    # Fit on first argument and tranform accordingly
+    scaler.fit_transform(args[0].labels.reshape(-1, 1))
+
+    # Transform all other arguments
+    for i in range(1, n):
+        scaler.transform(args[i].labels.reshape(-1, 1))
+
+    return scaler
