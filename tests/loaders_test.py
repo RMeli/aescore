@@ -634,6 +634,30 @@ def test_pdbloader_species_cmap_OtoS(testdata, testdir):
     )
 
 
-@pytest.mark.skip(reason="To be implemented")
-def test_pdbloader_ligand_coordinates(testdata):
-    pass
+def test_pdbloader_ligand_coordinates(testdata, testdir):
+    # Distance 0.0 produces a segmentation fault (see MDAnalysis#2656)
+    data = loaders.PDBData(testdata, 0.1, testdir)
+
+    batch_size = 2
+
+    # Transform atomic numbers to species
+    amap = loaders.anummap(data.species)
+    data.atomicnums_to_idxs(amap)
+
+    loader = torch.utils.data.DataLoader(
+        data, batch_size=batch_size, shuffle=False, collate_fn=loaders.pad_collate
+    )
+    iloader = iter(loader)
+
+    ids, labels, (species, coordinates) = next(iloader)
+
+    assert (ids == np.array(["1a4r", "1a4w"])).all()
+
+    assert species.shape == (batch_size, 42)  # Ligand 1a4w is the largest
+    assert coordinates.shape == (batch_size, 42, 3) # Ligand 1a4w is the largest
+
+    assert np.allclose(coordinates[0,0], [102.486, 24.870, -2.909])
+    assert np.allclose(coordinates[0,-1], [0.0, 0.0, 0.0]) # 1a4r is padded
+
+    assert np.allclose(coordinates[1,0], [17.735, -17.178, 22.612])
+    assert np.allclose(coordinates[1,-1], [18.049, -13.554, 14.106])
