@@ -6,6 +6,12 @@
 
 Learning protein-ligand binding affinity using atomic environment vectors.
 
+## Installation
+
+```
+pip install .
+```
+
 ## References
 
 [ANI](https://github.com/isayev/ASE_ANI) and [TorchANI](https://github.com/aiqm/torchani):

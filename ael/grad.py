@@ -32,21 +32,17 @@ def gradient(species, coordinates, label, model, AEVC, loss, device=None):
     if device is None:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # Move data to device
-    # Add batch dimension
+    # Move data to device and add batch dimension
     label = torch.tensor(label).to(device).unsqueeze(0)
     species = species.to(device).unsqueeze(0)
     coordinates = (
         coordinates.clone().detach().requires_grad_(True).to(device).unsqueeze(0)
     )
 
-    # Compute AEVs
     aevs = AEVC.forward((species, coordinates)).aevs
 
-    # Compute output
     output = model(species, aevs)
 
-    # Compute loss
     ls = loss(output, label)
 
     # Compute gradient of the loss with respect to the coordinates
@@ -108,7 +104,7 @@ if __name__ == "__main__":
     else:
         cmap = None
 
-    # Load and apply amap
+    # Load and apply atom to index mapping with amap
     amap = utils.load_amap(args.amap)
     n_species = len(amap)
 
@@ -123,10 +119,10 @@ if __name__ == "__main__":
         for line in tqdm.tqdm(f):
             label, recfile, ligfile = line.split()
 
-            # Load system
             system = loaders.load_pdbs(ligfile, recfile, args.datapaths)
 
             # Select ligand and residues
+            # TODO: Unify selections
             selection = system.select_atoms(
                 f"(byres (around {args.distance} (resname LIG))) or (resname LIG)"
             )
@@ -146,7 +142,6 @@ if __name__ == "__main__":
                 elements = selection.elements
                 coordinates = selection.positions
 
-            # Initialise gradient vector for whole system
             G = np.zeros(len(system.atoms))
 
             # Get species for selection
@@ -158,7 +153,6 @@ if __name__ == "__main__":
                 loaders.chemap([anums], cmap)  # Only one system
             species = loaders.anum_to_idx(anums, amap)
 
-            # Torch gradient
             gradt = gradient(
                 torch.from_numpy(species),
                 torch.from_numpy(coordinates),

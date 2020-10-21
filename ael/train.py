@@ -94,10 +94,8 @@ def train(
 
             optimizer.zero_grad()
 
-            # Forward pass
             output = model(species, aevs)
 
-            # TODO: Exponential loss function?
             loss = loss_function(output, labels)
 
             loss.backward()
@@ -114,7 +112,7 @@ def train(
             model.eval()
 
             # Validation
-            with torch.no_grad():  # No need to track gradients
+            with torch.no_grad():
                 for _, labels, (species, coordinates) in testloader:
 
                     # Move data to device
