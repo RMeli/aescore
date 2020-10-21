@@ -6,7 +6,7 @@ import torch
 import torchani
 from torch import nn
 
-from ael import models, utils, loaders
+from ael import models, utils, loaders, constants
 
 np.random.seed(42)
 torch.manual_seed(42)
@@ -143,3 +143,13 @@ def test_labels_scaler(testdata, testdir):
 
     assert np.allclose(labels1, scaler.inverse_transform(data1.labels))
     assert np.allclose(labels2, scaler.inverse_transform(data2.labels))
+
+
+@pytest.mark.parametrize(
+    "score, result", [(0.0, 0.0), (constants.R * constants.T, -np.log10(np.exp(1)))]
+)
+def test_vina_to_pK(score, result):
+
+    r = utils.vina_to_pK(score)
+
+    assert r == pytest.approx(result)
