@@ -1,3 +1,6 @@
+import os
+
+import mlflow
 import numpy as np
 import torch
 import torchani
@@ -161,7 +164,8 @@ def test_predict_scaling(testdata, testdir):
     assert np.allclose(true, original_labels)
     assert np.allclose(predicted, scaler.inverse_transform(predicted_scaled))
 
-def test_evaluate(testdata, testdir):
+
+def test_evaluate(testdata, testdir, tmpdir):
 
     # Distance 0.0 produces a segmentation fault (see MDAnalysis#2656)
     data = loaders.PDBData(testdata, 0.1, testdir)
@@ -187,30 +191,14 @@ def test_evaluate(testdata, testdir):
     # AEV: 1 * 5 + 1 * 5 * (5 + 1) // 2 = 5 (R) + 15 (A) = 20
     assert AEVC.aev_length == 20
 
-    model = models.AffinityModel(n_species, AEVC.aev_length)
+    mods = [
+        models.AffinityModel(n_species, AEVC.aev_length),
+        models.AffinityModel(n_species, AEVC.aev_length),
+    ]
 
-    ids, true, predicted = predict.predict(model, AEVC, loader)
+    with mlflow.start_run():
+        predict.evaluate(mods, loader, AEVC, outpath=tmpdir)
 
-    assert isinstance(true, np.ndarray)
-    assert len(true) == batch_size
-
-    assert isinstance(predicted, np.ndarray)
-    assert len(predicted) == batch_size
-
-    # Systems are the other way around with respect to file order
-    # This is to test that deltas are added to the correct ID
-    delta_ids = np.array(["1a4w", "1a4r"])
-    delta_baseline = np.array([500, 600])
-    delta = np.array([5.92, 6.66])
-    s = np.argsort(delta_ids)
-
-    ids_b, true_b, predicted_b = predict.predict(
-        model, AEVC, loader, baseline=(delta_ids, delta_baseline, delta)
-    )
-
-    sort = np.argsort(ids)
-    bsort = np.argsort(ids_b)
-
-    assert (ids[sort] == ids_b[bsort]).all()
-    assert np.allclose(true[sort], true[bsort])
-    assert np.allclose(predicted[sort], predicted_b[bsort] - delta_baseline[s])
+        assert os.path.isfile(os.path.join(tmpdir, "predict.csv"))
+        assert os.path.isfile(os.path.join(tmpdir, "regplot-predict.pdf"))
+        assert os.path.isfile(os.path.join(tmpdir, "regplot-predict.png"))
