@@ -1,4 +1,5 @@
 import os
+from typing import List, Optional, Tuple, Union
 
 import mlflow
 import numpy as np
@@ -6,8 +7,6 @@ import torch
 import tqdm
 
 from ael import utils
-
-from typing import Optional, Tuple, List, Union
 
 
 def train(
@@ -169,19 +168,16 @@ def train(
 
 if __name__ == "__main__":
 
-    from torch import optim, nn
-    import torchani
+    import json
+    from typing import Any, Optional, Tuple
 
+    import torchani
+    from matplotlib import pyplot as plt
+    from torch import nn, optim
     from torch.backends import cudnn
     from torch.utils import data
 
-    from ael import loaders, models, plot, predict, argparsers
-
-    import json
-
-    from matplotlib import pyplot as plt
-
-    from typing import Optional, Tuple, Any
+    from ael import argparsers, loaders, models, plot, predict
 
     args = argparsers.trainparser(default="BP")
 

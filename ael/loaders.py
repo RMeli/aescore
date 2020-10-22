@@ -8,8 +8,8 @@ import qcelemental as qcel
 import torch
 import torch.nn as nn
 import tqdm
-from torch.utils import data
 from openbabel import pybel
+from torch.utils import data
 
 
 def load_pdbs(

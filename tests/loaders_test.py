@@ -3,9 +3,9 @@ import os
 import MDAnalysis as mda
 import numpy as np
 import pytest
+import qcelemental as qcel
 import torch
 from openbabel import pybel
-import qcelemental as qcel
 
 from ael import loaders
 
@@ -654,10 +654,10 @@ def test_pdbloader_ligand_coordinates(testdata, testdir):
     assert (ids == np.array(["1a4r", "1a4w"])).all()
 
     assert species.shape == (batch_size, 42)  # Ligand 1a4w is the largest
-    assert coordinates.shape == (batch_size, 42, 3) # Ligand 1a4w is the largest
+    assert coordinates.shape == (batch_size, 42, 3)  # Ligand 1a4w is the largest
 
-    assert np.allclose(coordinates[0,0], [102.486, 24.870, -2.909])
-    assert np.allclose(coordinates[0,-1], [0.0, 0.0, 0.0]) # 1a4r is padded
+    assert np.allclose(coordinates[0, 0], [102.486, 24.870, -2.909])
+    assert np.allclose(coordinates[0, -1], [0.0, 0.0, 0.0])  # 1a4r is padded
 
-    assert np.allclose(coordinates[1,0], [17.735, -17.178, 22.612])
-    assert np.allclose(coordinates[1,-1], [18.049, -13.554, 14.106])
+    assert np.allclose(coordinates[1, 0], [17.735, -17.178, 22.612])
+    assert np.allclose(coordinates[1, -1], [18.049, -13.554, 14.106])

@@ -56,14 +56,13 @@ if __name__ == "__main__":
 
     import argparse as ap
     import json
-    import tqdm
     import os
-
-    import numpy as np
-
     import warnings
 
-    from ael import utils, loaders
+    import numpy as np
+    import tqdm
+
+    from ael import loaders, utils
 
     parser = ap.ArgumentParser(description="Loss gradient.")
 

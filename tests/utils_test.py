@@ -6,7 +6,7 @@ import torch
 import torchani
 from torch import nn
 
-from ael import models, utils, loaders, constants
+from ael import constants, loaders, models, utils
 
 np.random.seed(42)
 torch.manual_seed(42)

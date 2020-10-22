@@ -4,7 +4,7 @@ import torch
 import torchani
 from torch import nn
 
-from ael import loaders, models, grad
+from ael import grad, loaders, models
 
 np.random.seed(42)
 torch.manual_seed(42)
