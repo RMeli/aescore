@@ -9,6 +9,10 @@ Learning protein-ligand binding affinity using atomic environment vectors.
 ## Installation
 
 ```
+conda create -f devtools/conda-envs/ael-test.yaml
+```
+
+```
 pip install .
 ```
 
