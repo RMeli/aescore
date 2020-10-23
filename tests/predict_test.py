@@ -1,3 +1,6 @@
+import os
+
+import mlflow
 import numpy as np
 import torch
 import torchani
@@ -160,3 +163,42 @@ def test_predict_scaling(testdata, testdir):
 
     assert np.allclose(true, original_labels)
     assert np.allclose(predicted, scaler.inverse_transform(predicted_scaled))
+
+
+def test_evaluate(testdata, testdir, tmpdir):
+
+    # Distance 0.0 produces a segmentation fault (see MDAnalysis#2656)
+    data = loaders.PDBData(testdata, 0.1, testdir)
+
+    batch_size = 2
+
+    # Transform atomic numbers to species
+    amap = loaders.anummap(data.species)
+    data.atomicnums_to_idxs(amap)
+
+    n_species = len(amap)
+
+    loader = torch.utils.data.DataLoader(
+        data, batch_size=batch_size, shuffle=False, collate_fn=loaders.pad_collate
+    )
+
+    # Define AEVComputer
+    AEVC = torchani.AEVComputer(RcR, RcA, EtaR, RsR, EtaA, Zeta, RsA, TsA, n_species)
+
+    # Radial functions: 1
+    # Angular functions: 1
+    # Number of species: 5
+    # AEV: 1 * 5 + 1 * 5 * (5 + 1) // 2 = 5 (R) + 15 (A) = 20
+    assert AEVC.aev_length == 20
+
+    mods = [
+        models.AffinityModel(n_species, AEVC.aev_length),
+        models.AffinityModel(n_species, AEVC.aev_length),
+    ]
+
+    with mlflow.start_run():
+        predict.evaluate(mods, loader, AEVC, outpath=tmpdir)
+
+        assert os.path.isfile(os.path.join(tmpdir, "predict.csv"))
+        assert os.path.isfile(os.path.join(tmpdir, "regplot-predict.pdf"))
+        assert os.path.isfile(os.path.join(tmpdir, "regplot-predict.png"))

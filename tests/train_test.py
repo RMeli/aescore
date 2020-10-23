@@ -1,5 +1,8 @@
+import os
+
 import mlflow
 import numpy as np
+import pytest
 import torch
 import torchani
 from torch import nn, optim
@@ -183,6 +186,66 @@ def test_train_small_cmap_dummy(testdata, testdir):
             loader,
             loader,
             epochs=15,  # torchani.AEVComputer
+        )
+
+        # Validation loss is shifted when trainloader and testloader are the same
+        assert np.allclose(train_losses[1:], valid_losses[:-1])
+
+
+@pytest.mark.parametrize("modelidx", [None, 1])
+def test_train_small_save(testdata, testdir, modelidx, tmpdir):
+
+    with mlflow.start_run():
+
+        # Distance 0.0 produces a segmentation fault (see MDAnalysis#2656)
+        data = loaders.PDBData(testdata, 0.1, testdir)
+
+        batch_size = 2
+
+        # Transform atomic numbers to species
+        amap = loaders.anummap(data.species)
+        data.atomicnums_to_idxs(amap)
+
+        n_species = len(amap)
+
+        loader = torch.utils.data.DataLoader(
+            data, batch_size=batch_size, shuffle=False, collate_fn=loaders.pad_collate
+        )
+
+        # Define AEVComputer
+        AEVC = torchani.AEVComputer(
+            RcR, RcA, EtaR, RsR, EtaA, Zeta, RsA, TsA, n_species
+        )
+
+        # Radial functions: 1
+        # Angular functions: 1
+        # Number of species: 5
+        # AEV: 1 * 5 + 1 * 5 * (5 + 1) // 2 = 5 (R) + 15 (A) = 20
+        assert AEVC.aev_length == 20
+
+        model = models.AffinityModel(n_species, AEVC.aev_length, layers_sizes=[1])
+        optimizer = optim.SGD(model.parameters(), lr=0.01)
+        mse = nn.MSELoss()
+
+        # Check number of ANNs
+        assert len(model) == n_species
+
+        train_losses, valid_losses = train.train(
+            model,
+            optimizer,
+            mse,
+            AEVC,
+            loader,
+            loader,
+            epochs=15,  # torchani.AEVComputer
+            savepath=tmpdir,
+            idx=modelidx,
+        )
+
+        assert os.path.isfile(
+            os.path.join(
+                tmpdir, "best.pth" if modelidx is None else f"best_{modelidx}.pth"
+            )
         )
 
         # Validation loss is shifted when trainloader and testloader are the same

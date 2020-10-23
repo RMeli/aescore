@@ -1,14 +1,12 @@
-from ael import plot
+import os
+from typing import Union
 
 import mlflow
-import torch
-
 import numpy as np
 import pandas as pd
+import torch
 
-import os
-
-from typing import Union
+from ael import plot
 
 
 def predict(model, AEVC, loader, scaler=None, baseline=None, device=None):
@@ -189,9 +187,9 @@ if __name__ == "__main__":
 
     import json
 
-    from ael import loaders, utils, argparsers
-
     from torch.utils import data
+
+    from ael import argparsers, loaders, utils
 
     args = argparsers.predictparser()
 

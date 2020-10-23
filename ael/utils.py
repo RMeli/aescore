@@ -5,8 +5,8 @@ import mlflow
 import numpy as np
 import torch
 import torchani
-from torch import nn
 from sklearn.preprocessing import StandardScaler
+from torch import nn
 
 from ael import constants, models
 

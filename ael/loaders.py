@@ -8,8 +8,8 @@ import qcelemental as qcel
 import torch
 import torch.nn as nn
 import tqdm
-from torch.utils import data
 from openbabel import pybel
+from torch.utils import data
 
 
 def load_pdbs(
@@ -477,7 +477,6 @@ def chemap(
             cmapZ[0] = from_elements
 
     # Apply map to all the atomicnums
-    # TODO: Refactor to make this faster
     for idx in range(n):
         for to_element, from_elements in cmapZ.items():
             mask = np.isin(atomicnums[idx], from_elements)
