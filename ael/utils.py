@@ -60,7 +60,10 @@ def loadmodel(path, eval: bool = True) -> nn.ModuleDict:
     Evaluation mode is needed to switch off the dropout layers when using the model
     for inference.
     """
-    d = torch.load(path)
+    if torch.cuda.is_available():
+        d = torch.load(path)
+    else:
+        d = torch.load(path, map_location=torch.device('cpu'))
 
     model = models.AffinityModel(**d["args"])
 
@@ -124,7 +127,10 @@ def loadAEVC(path) -> torchani.AEVComputer:
     torchani.AEVComputer
         AEVComputer
     """
-    d = torch.load(path)
+    if torch.cuda.is_available():
+        d = torch.load(path)
+    else:
+        d = torch.load(path, map_location=torch.device('cpu'))
 
     AEVC = torchani.AEVComputer(**d["args"])
 
