@@ -33,6 +33,30 @@ def test_load_pdbs(testdir, system, n_ligand, n_receptor):
     assert len(lig.atoms) == n_ligand
 
 
+# TODO Uniform loading functions to work with different file formats
+@pytest.mark.parametrize(
+    "system, n_ligand, n_receptor", [("1a4r", 28, 6009), ("1a4w", 42, 4289)]
+)
+def test_load_pdbs_mol2(testdir, system, n_ligand, n_receptor):
+
+    ligname = os.path.join(system, f"{system}_ligand.mol2")
+    recname = os.path.join(system, f"{system}_protein.pdb")
+
+    ulig = mda.Universe(os.path.join(testdir, ligname))
+    urec = mda.Universe(os.path.join(testdir, recname))
+
+    assert len(ulig.atoms) == n_ligand
+    assert len(urec.atoms) == n_receptor
+
+    system = loaders.load_pdbs(ligname, recname, testdir)
+
+    assert len(system.atoms) == n_ligand + n_receptor
+
+    lig = system.select_atoms("resname LIG")
+
+    assert len(lig.atoms) == n_ligand
+
+
 def test_load_pdbs_fail_lig(testdir):
 
     system = "1a4r"

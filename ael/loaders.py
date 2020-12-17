@@ -12,6 +12,33 @@ from openbabel import pybel
 from torch.utils import data
 
 
+def _universe_from_openbabel(obmol):
+    n_atoms = len(obmol.atoms)
+    n_residues = 1  # LIG
+
+    u = mda.Universe.empty(
+        n_atoms,
+        n_residues,
+        atom_resindex=[0] * n_atoms,
+        residue_segindex=[0] * n_residues,
+        trajectory=True,
+    )
+
+    elements = []
+    coordinates = np.zeros((n_atoms, 3))
+    for idx, atom in enumerate(obmol):
+        elements.append(qcel.periodictable.to_E(atom.atomicnum))
+        coordinates[idx, :] = atom.coords
+
+    u.add_TopologyAttr("elements", elements)
+    u.add_TopologyAttr("type", elements)
+    u.add_TopologyAttr("resname", ["LIG"] * n_residues)
+
+    u.atoms.positions = coordinates
+
+    return u
+
+
 def load_pdbs(
     ligand: str, receptor: str, datapaths: Union[str, List[str]]
 ) -> mda.Universe:
@@ -39,7 +66,6 @@ def load_pdbs(
     The folders containing ligand and receptor files data are defined by
     :code:`datapaths`.
     """
-    assert os.path.splitext(ligand)[-1].lower() == ".pdb"
     assert os.path.splitext(receptor)[-1].lower() == ".pdb"
 
     # Ensure list
@@ -55,7 +81,9 @@ def load_pdbs(
             ligfile = os.path.join(path, ligand)
             if os.path.isfile(ligfile):
                 try:
-                    ulig = mda.Universe(ligfile)
+                    ext = os.path.splitext(ligand)[-1].lower()[1:]
+                    obmol = next(pybel.readfile(ext, ligfile))
+                    ulig = _universe_from_openbabel(obmol)
                 except Exception:
                     print(f"Problems loading {ligfile}")
                     raise
@@ -94,33 +122,6 @@ def load_pdbs(
     system = mda.core.universe.Merge(lig, rec)
 
     return system
-
-
-def _universe_from_openbabel(obmol):
-    n_atoms = len(obmol.atoms)
-    n_residues = 1  # LIG
-
-    u = mda.Universe.empty(
-        n_atoms,
-        n_residues,
-        atom_resindex=[0] * n_atoms,
-        residue_segindex=[0] * n_residues,
-        trajectory=True,
-    )
-
-    elements = []
-    coordinates = np.zeros((n_atoms, 3))
-    for idx, atom in enumerate(obmol):
-        elements.append(qcel.periodictable.to_E(atom.atomicnum))
-        coordinates[idx, :] = atom.coords
-
-    u.add_TopologyAttr("elements", elements)
-    u.add_TopologyAttr("type", elements)
-    u.add_TopologyAttr("resname", ["LIG"] * n_residues)
-
-    u.atoms.positions = coordinates
-
-    return u
 
 
 def load_mols(
