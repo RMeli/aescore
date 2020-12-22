@@ -58,4 +58,4 @@ jobs:
         file: ./coverage.xml
         name: codecov-${{ matrix.os }}-py${{ matrix.python-version }}
         fail_ci_if_error: true
-        verbose: true
+        verbose: false
