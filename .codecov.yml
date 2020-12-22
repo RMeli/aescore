@@ -1,5 +1,6 @@
 # Codecov configuration to make it a bit less noisy
 coverage:
+  token: 9fca75c0-b2d0-408b-bd85-f33f0d1f523d
   status:
     patch: false
     project:
