@@ -28,8 +28,8 @@ jobs:
         df -h
         ulimit -a
 
-    # More info on options: https://github.com/goanpeca/setup-miniconda
-    - uses: goanpeca/setup-miniconda@v1
+    # More info on options: https://github.com/marketplace/actions/setup-miniconda
+    - uses: conda-incubator/setup-miniconda@v2
       with:
         python-version: ${{ matrix.python-version }}
         environment-file: devtools/conda-envs/ael-test.yaml
@@ -58,3 +58,5 @@ jobs:
         file: ./coverage.xml
         flags: unittests
         name: codecov-${{ matrix.os }}-py${{ matrix.python-version }}
+        fail_ci_if_error: true
+        verbose: true
