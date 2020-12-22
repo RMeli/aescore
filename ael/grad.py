@@ -118,7 +118,11 @@ if __name__ == "__main__":
         for line in tqdm.tqdm(f):
             label, recfile, ligfile = line.split()
 
-            system = loaders.load_pdbs(ligfile, recfile, args.datapaths)
+            systems = loaders.load_mols(ligfile, recfile, args.datapaths)
+
+            # TODO: Allow multiple systems?
+            assert len(systems) == 1
+            system = systems[0]
 
             # Select ligand and residues
             # TODO: Unify selections

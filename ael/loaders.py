@@ -12,90 +12,6 @@ from openbabel import pybel
 from torch.utils import data
 
 
-def load_pdbs(
-    ligand: str, receptor: str, datapaths: Union[str, List[str]]
-) -> mda.Universe:
-    """
-    Load ligand and receptor PDB files in a single mda.Universe
-
-    Parameters
-    ----------
-    ligand: str
-        Ligand file
-    receptor: str
-        Receptor file
-    datapaths: Union[str, List[str]]
-        Paths to root directory ligand and receptors are stored
-
-    Returns
-    -------
-    mda.Universe
-        MDAnalysis universe for the protein-ligand complex
-
-    Notes
-    -----
-    The ligand is treated as a single entity named LIG. (:code:`resname LIG`).
-
-    The folders containing ligand and receptor files data are defined by
-    :code:`datapaths`.
-    """
-    assert os.path.splitext(ligand)[-1].lower() == ".pdb"
-    assert os.path.splitext(receptor)[-1].lower() == ".pdb"
-
-    # Ensure list
-    if isinstance(datapaths, str):
-        datapaths = [datapaths]
-
-    # TODO: Redirect warning instead of suppressing
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-
-        # Try to load ligand
-        for path in datapaths:
-            ligfile = os.path.join(path, ligand)
-            if os.path.isfile(ligfile):
-                try:
-                    ulig = mda.Universe(ligfile)
-                except Exception:
-                    print(f"Problems loading {ligfile}")
-                    raise
-
-                break
-        else:
-            # Runs only if nothing is found
-            raise RuntimeError(
-                f"Could not find ligand file {ligfile} in {datapaths}..."
-            )
-
-        # Try to load receptor
-        for path in datapaths:
-            recfile = os.path.join(path, receptor)
-            if os.path.isfile(recfile):
-                try:
-                    urec = mda.Universe(recfile)
-                except Exception:
-                    print(f"Problems loading {recfile}")
-                    raise
-
-                break
-        else:
-            # Runs only if nothing is found
-            raise RuntimeError(
-                f"Could not find receptor file {recfile} in {datapaths}..."
-            )
-
-    lig = ulig.select_atoms("all")
-    rec = urec.select_atoms("all")
-
-    # Rename ligand consistently
-    lig.residues.resnames = "LIG"
-
-    # Merge receptor and ligand in single universe
-    system = mda.core.universe.Merge(lig, rec)
-
-    return system
-
-
 def _universe_from_openbabel(obmol):
     n_atoms = len(obmol.atoms)
     n_residues = 1  # LIG
@@ -157,7 +73,8 @@ def load_mols(
 
     ext = os.path.splitext(ligand)[-1].lower()[1:]
 
-    assert ext == "sdf" or ext == "mol2"
+    # Assumes receptor is a PDB file
+    # TODO: relax this assumption
     assert os.path.splitext(receptor)[-1].lower() == ".pdb"
 
     # Ensure list
@@ -249,40 +166,6 @@ def select(
         return resselection.elements[mask], resselection.positions[mask]
     else:
         return resselection.elements, resselection.positions
-
-
-def load_pdbs_and_select(
-    ligand: str, receptor: str, distance: float, datapaths, removeHs: bool = False
-) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Load PDB files and select binding site.
-
-    Parameters
-    ----------
-    ligand: str
-        Ligand file
-    receptor: str
-        Receptor file
-    distance: float
-        Ligand-residues distance
-    datapaths: Union[str, List[str]]
-        Paths to root directory ligand and receptors are stored
-    removeHs: bool
-        Remove hydrogen atoms
-
-    Returns
-    -------
-    Tuple[np.ndarray, np.ndarray]
-        Array of elements and array of cartesian coordinate for ligand and protein
-        atoms within the binding site
-
-    Notes
-    -----
-    Combines :func:`load_pdbs` and :func:`select`.
-    """
-    system = load_pdbs(ligand, receptor, datapaths)
-
-    return select(system, distance, removeHs=removeHs)
 
 
 def load_mols_and_select(
@@ -645,9 +528,12 @@ class PDBData(Data):
 
                 self.labels.append(float(label))
 
-                els, coords = load_pdbs_and_select(
+                systems = load_mols_and_select(
                     ligfile, recfile, distance, datapaths, removeHs=removeHs
                 )
+
+                assert len(systems) == 1
+                els, coords = systems[0]
 
                 atomicnums = elements_to_atomicnums(els)
 
@@ -760,14 +646,26 @@ class VSData(Data):
 
                 # Support mixed file or numerical label
                 try:
-                    labels = [float(labelfile)]
-                    ids = [idsuffix]
+                    # FIXME: This is an hack to support VS predictions
+                    #        without experimental values
+                    # FIXME: It allows to load multiple systems even if
+                    #        a 0.00 label is provided
+                    if os.path.splitext(ligfile)[-1].lower() == ".pdb":
+                        labels = [float(labelfile)]
+                        ids = [idsuffix]
 
-                    systems = [
-                        load_pdbs_and_select(
+                        systems = load_mols_and_select(
                             ligfile, recfile, distance, datapaths, removeHs=removeHs
                         )
-                    ]
+
+                        assert len(labels) == len(ids) == len(systems) == 1
+                    else:
+                        systems = load_mols_and_select(
+                            ligfile, recfile, distance, datapaths, removeHs=removeHs
+                        )
+
+                        labels = [float(labelfile)] * len(systems)
+                        ids = [str(i) for i in range(len(systems))]
 
                 except ValueError:  # labelfile contains a file path, not a label
                     ids = np.loadtxt(
