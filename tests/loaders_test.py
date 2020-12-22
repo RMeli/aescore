@@ -10,12 +10,13 @@ from openbabel import pybel
 from ael import loaders
 
 
+@pytest.mark.parametrize("ext", ["pdb", "mol2"])
 @pytest.mark.parametrize(
     "system, n_ligand, n_receptor", [("1a4r", 28, 6009), ("1a4w", 42, 4289)]
 )
-def test_load_pdbs(testdir, system, n_ligand, n_receptor):
+def test_load_mols(testdir, system, n_ligand, n_receptor, ext):
 
-    ligname = os.path.join(system, f"{system}_ligand.pdb")
+    ligname = os.path.join(system, f"{system}_ligand.{ext}")
     recname = os.path.join(system, f"{system}_protein.pdb")
 
     ulig = mda.Universe(os.path.join(testdir, ligname))
@@ -24,7 +25,10 @@ def test_load_pdbs(testdir, system, n_ligand, n_receptor):
     assert len(ulig.atoms) == n_ligand
     assert len(urec.atoms) == n_receptor
 
-    system = loaders.load_pdbs(ligname, recname, testdir)
+    systems = loaders.load_mols(ligname, recname, testdir)
+
+    assert len(systems) == 1
+    system = systems[0]
 
     assert len(system.atoms) == n_ligand + n_receptor
 
@@ -33,31 +37,7 @@ def test_load_pdbs(testdir, system, n_ligand, n_receptor):
     assert len(lig.atoms) == n_ligand
 
 
-# TODO Uniform loading functions to work with different file formats
-@pytest.mark.parametrize(
-    "system, n_ligand, n_receptor", [("1a4r", 28, 6009), ("1a4w", 42, 4289)]
-)
-def test_load_pdbs_mol2(testdir, system, n_ligand, n_receptor):
-
-    ligname = os.path.join(system, f"{system}_ligand.mol2")
-    recname = os.path.join(system, f"{system}_protein.pdb")
-
-    ulig = mda.Universe(os.path.join(testdir, ligname))
-    urec = mda.Universe(os.path.join(testdir, recname))
-
-    assert len(ulig.atoms) == n_ligand
-    assert len(urec.atoms) == n_receptor
-
-    system = loaders.load_pdbs(ligname, recname, testdir)
-
-    assert len(system.atoms) == n_ligand + n_receptor
-
-    lig = system.select_atoms("resname LIG")
-
-    assert len(lig.atoms) == n_ligand
-
-
-def test_load_pdbs_fail_lig(testdir):
+def test_load_mols_fail_lig(testdir):
 
     system = "1a4r"
 
@@ -65,10 +45,10 @@ def test_load_pdbs_fail_lig(testdir):
     recname = os.path.join(system, f"{system}_protein.pdb")
 
     with pytest.raises(Exception):
-        system = loaders.load_pdbs(ligname, recname, testdir)
+        system = loaders.load_mols(ligname, recname, testdir)
 
 
-def test_load_pdbs_fail_rec(testdir):
+def test_load_mols_fail_rec(testdir):
 
     system = "1a4r"
 
@@ -76,14 +56,15 @@ def test_load_pdbs_fail_rec(testdir):
     recname = os.path.join(system, f"{system}_FAIL.pdb")
 
     with pytest.raises(Exception):
-        system = loaders.load_pdbs(ligname, recname, testdir)
+        system = loaders.load_mols(ligname, recname, testdir)
 
 
+@pytest.mark.parametrize("ext", ["sdf", "mol2"])
 @pytest.mark.parametrize("system, n_atoms", [("1a4r", 36), ("1a4w", 48)])
-def test_universe_from_openbabel(testdir, system, n_atoms):
-    ligfile = os.path.join(testdir, system, f"{system}_docking.sdf")
+def test_universe_from_openbabel(testdir, system, n_atoms, ext):
+    ligfile = os.path.join(testdir, system, f"{system}_docking.{ext}")
 
-    obmols = [obmol for obmol in pybel.readfile("sdf", ligfile)]
+    obmols = [obmol for obmol in pybel.readfile(ext, ligfile)]
 
     assert len(obmols) == 9
 
@@ -103,7 +84,7 @@ def test_universe_from_openbabel(testdir, system, n_atoms):
 @pytest.mark.parametrize(
     "system, n_ligand, n_receptor", [("1a4r", 36, 6009), ("1a4w", 48, 4289)]
 )
-def test_load_mols(testdir, system, n_ligand, n_receptor, ext):
+def test_load_mols_multiple(testdir, system, n_ligand, n_receptor, ext):
 
     ligname = os.path.join(system, f"{system}_docking.{ext}")
     ligfile = os.path.join(testdir, ligname)
@@ -128,6 +109,7 @@ def test_load_mols(testdir, system, n_ligand, n_receptor, ext):
             assert np.allclose(lig.atoms.positions[idx], atom.coords)
 
 
+@pytest.mark.parametrize("ext", ["pdb", "mol2"])
 @pytest.mark.parametrize(
     "system, distance, n_ligand, n_receptor",
     [
@@ -144,17 +126,20 @@ def test_load_mols(testdir, system, n_ligand, n_receptor, ext):
         ("1a4w", 3.0, 42, 156),
     ],
 )
-def test_select(testdir, system, distance, n_ligand, n_receptor):
+def test_select(testdir, system, distance, n_ligand, n_receptor, ext):
     """
     Selection compared with PyMol selection:
 
         sele byres PROTEIN within DISTANCE of LIGAND
     """
 
-    ligname = os.path.join(system, f"{system}_ligand.pdb")
+    ligname = os.path.join(system, f"{system}_ligand.{ext}")
     recname = os.path.join(system, f"{system}_protein.pdb")
 
-    system = loaders.load_pdbs(ligname, recname, testdir)
+    systems = loaders.load_mols(ligname, recname, testdir)
+
+    assert len(systems) == 1
+    system = systems[0]
 
     atoms, coordinates = loaders.select(system, distance)
 
@@ -162,6 +147,7 @@ def test_select(testdir, system, distance, n_ligand, n_receptor):
     assert coordinates.shape == (n_ligand + n_receptor, 3)
 
 
+@pytest.mark.parametrize("ext", ["pdb", "mol2"])
 @pytest.mark.parametrize(
     "system, distance, n_ligand, n_receptor",
     [
@@ -172,7 +158,7 @@ def test_select(testdir, system, distance, n_ligand, n_receptor):
         ("1a4w", 2.5, 42, 31),
     ],
 )
-def test_select_removeHs(testdir, system, distance, n_ligand, n_receptor):
+def test_select_removeHs(testdir, system, distance, n_ligand, n_receptor, ext):
     """
     Selection compared with PyMol selection:
 
@@ -182,10 +168,13 @@ def test_select_removeHs(testdir, system, distance, n_ligand, n_receptor):
     (H* does not select 1HD1 while *H* also selects CH2).
     """
 
-    ligname = os.path.join(system, f"{system}_ligand.pdb")
+    ligname = os.path.join(system, f"{system}_ligand.{ext}")
     recname = os.path.join(system, f"{system}_protein.pdb")
 
-    system = loaders.load_pdbs(ligname, recname, testdir)
+    systems = loaders.load_mols(ligname, recname, testdir)
+
+    assert len(systems) == 1
+    system = systems[0]
 
     atoms, coordinates = loaders.select(system, distance, removeHs=True)
 
@@ -193,6 +182,7 @@ def test_select_removeHs(testdir, system, distance, n_ligand, n_receptor):
     assert coordinates.shape == (n_ligand + n_receptor, 3)
 
 
+@pytest.mark.parametrize("ext", ["pdb", "mol2"])
 @pytest.mark.parametrize(
     "system, distance, n_ligand, n_receptor",
     [
@@ -209,24 +199,27 @@ def test_select_removeHs(testdir, system, distance, n_ligand, n_receptor):
         ("1a4w", 3.0, 42, 156),
     ],
 )
-def test_load_pdbs_and_select(testdir, system, distance, n_ligand, n_receptor):
+def test_load_mols_and_select(testdir, system, distance, n_ligand, n_receptor, ext):
     """
     Selection compared with PyMol selection:
 
         sele byres PROTEIN within DISTANCE of LIGAND
     """
 
-    ligname = os.path.join(system, f"{system}_ligand.pdb")
+    ligname = os.path.join(system, f"{system}_ligand.{ext}")
     recname = os.path.join(system, f"{system}_protein.pdb")
 
-    atoms, coordinates = loaders.load_pdbs_and_select(
-        ligname, recname, distance, testdir
-    )
+    systems = loaders.load_mols_and_select(ligname, recname, distance, testdir)
+
+    assert len(systems) == 1
+
+    atoms, coordinates = systems[0]
 
     # assert len(atoms) == n_ligand + n_receptor
     assert coordinates.shape == (n_ligand + n_receptor, 3)
 
 
+@pytest.mark.parametrize("ext", ["pdb", "mol2"])
 @pytest.mark.parametrize(
     "system, distance, n_ligand, n_receptor",
     [
@@ -237,7 +230,9 @@ def test_load_pdbs_and_select(testdir, system, distance, n_ligand, n_receptor):
         ("1a4w", 2.5, 42, 31),
     ],
 )
-def test_load_pdbs_and_select_removeHs(testdir, system, distance, n_ligand, n_receptor):
+def test_load_mols_and_select_removeHs(
+    testdir, system, distance, n_ligand, n_receptor, ext
+):
     """
     Selection compared with PyMol selection:
 
@@ -247,12 +242,15 @@ def test_load_pdbs_and_select_removeHs(testdir, system, distance, n_ligand, n_re
     (H* does not select 1HD1 while *H* also selects CH2).
     """
 
-    ligname = os.path.join(system, f"{system}_ligand.pdb")
+    ligname = os.path.join(system, f"{system}_ligand.{ext}")
     recname = os.path.join(system, f"{system}_protein.pdb")
 
-    atoms, coordinates = loaders.load_pdbs_and_select(
+    systems = loaders.load_mols_and_select(
         ligname, recname, distance, testdir, removeHs=True
     )
+
+    assert len(systems) == 1
+    atoms, coordinates = systems[0]
 
     # assert len(atoms) == n_ligand + n_receptor
     assert coordinates.shape == (n_ligand + n_receptor, 3)
@@ -267,7 +265,9 @@ def test_load_pdbs_and_select_removeHs(testdir, system, distance, n_ligand, n_re
         ("1a4w", 0.1, 42),
     ],
 )
-def test_load_mols_and_select_removeHs(testdir, system, distance, n_ligand, ext):
+def test_load_mols_and_select_removeHs_multiple(
+    testdir, system, distance, n_ligand, ext
+):
     """
     Selection compared with PyMol selection:
 
