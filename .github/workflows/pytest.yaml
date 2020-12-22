@@ -55,8 +55,6 @@ jobs:
     - name: CodeCov
       uses: codecov/codecov-action@v1
       with:
-        token: 9fca75c0-b2d0-408b-bd85-f33f0d1f523d
-        file: ./coverage.xml
-        name: codecov-${{ matrix.os }}-py${{ matrix.python-version }}
+        file: coverage.xml
         fail_ci_if_error: true
         verbose: false
