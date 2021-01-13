@@ -1,7 +1,5 @@
-import pytest
-
 import numpy as np
-
+import pytest
 import torch
 import torchani
 from torch import nn
@@ -132,6 +130,7 @@ def test_forward(testdata, testdir):
     output = model(aev.species, aev.aevs)
 
     assert output.shape == (batch_size,)
+
 
 def test_forward_atomic(testdata, testdir):
 

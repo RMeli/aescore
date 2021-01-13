@@ -70,3 +70,59 @@ def test_grad(testdata, testdir):
             )
 
             assert gradient.shape == coordinates.shape
+
+
+def test_atomic(testdata, testdir):
+
+    with mlflow.start_run():
+
+        # Distance 0.0 produces a segmentation fault (see MDAnalysis#2656)
+        data = loaders.PDBData(testdata, 0.1, testdir)
+
+        n_systems = len(data)
+
+        assert n_systems == 2
+
+        # Transform atomic numbers to species
+        amap = loaders.anummap(data.species)
+        data.atomicnums_to_idxs(amap)
+
+        n_species = len(amap)
+
+        # Define AEVComputer
+        AEVC = torchani.AEVComputer(
+            RcR, RcA, EtaR, RsR, EtaA, Zeta, RsA, TsA, n_species
+        )
+
+        # Radial functions: 1
+        # Angular functions: 1
+        # Number of species: 5
+        # AEV: 1 * 5 + 1 * 5 * (5 + 1) // 2 = 5 (R) + 15 (A) = 20
+        assert AEVC.aev_length == 20
+
+        model = models.AffinityModel(n_species, AEVC.aev_length)
+
+        # Move model and AEVComputer to device
+        model.to(device)
+        AEVC.to(device)
+
+        # Model in evaluation mode
+        model.eval()
+
+        for pdbid, _, (species, coordinates) in data:
+
+            atomic = grad.atomic(species, coordinates, model, AEVC, device)
+
+            # Add fictitious batch dimension
+            species = species.unsqueeze(0)
+            coordinates = coordinates.unsqueeze(0)
+
+            assert atomic.shape == species.shape
+
+            aevs = AEVC.forward((species, coordinates)).aevs
+            prediction = model(species, aevs)
+
+            assert np.allclose(
+                torch.sum(atomic, dim=1).cpu().detach().numpy(),
+                prediction.cpu().detach().numpy(),
+            )

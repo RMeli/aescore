@@ -144,7 +144,6 @@ class AffinityModel(nn.ModuleDict):
 
         return output
 
-
     def forward(self, species, aevs):
         output = self._forward_atomic(species, aevs)
         return torch.sum(output, dim=1)
