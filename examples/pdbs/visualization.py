@@ -1,7 +1,7 @@
 from pymol import cmd, stored
 
 
-def visualize(pdbid, method="gradient"):
+def visualize(pdbid, method):
     assert method in ["gradient", "atomic"]
 
     # Clear everything
@@ -41,6 +41,9 @@ def visualize(pdbid, method="gradient"):
     cmd.spectrum("b", "red_white_green", "residues", -Bmax, Bmax)
 
     cmd.remove("(hydro)")
+    cmd.remove("solvent")
 
+    cmd.center("lig")
+    cmd.zoom("lig", 5)
 
 cmd.extend("visualize", visualize)
