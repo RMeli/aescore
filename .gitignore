@@ -108,7 +108,7 @@ ENV/
 # Examples
 examples/out
 examples/mlflow
-examples/pdbs
+examples/pdbs/*.pdb
 
 # mlflow
 mlruns
