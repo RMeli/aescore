@@ -13,6 +13,23 @@ from torch.utils import data
 
 
 def _universe_from_openbabel(obmol):
+    """
+    Create MDAnalysis universe from molecule parsed with OpenBabel.
+
+    Parameters
+    ----------
+    obmol:
+        Open Babel molecule
+    
+    Returns
+    -------
+    MDAnalysis universe
+
+    Notes
+    -----
+    The molecule has resnum/resis set to 1, resname set to LIG and record type
+    set to HETATM.
+    """
     n_atoms = len(obmol.atoms)
     n_residues = 1  # LIG
 
@@ -650,7 +667,7 @@ class VSData(Data):
                 pdbid = os.path.dirname(recfile)
 
                 # Support mixed file or numerical label
-                try:
+                try: # labelfile contains a single label
                     # FIXME: This is an hack to support VS predictions
                     #        without experimental values
                     # FIXME: It allows to load multiple systems even if
