@@ -46,4 +46,5 @@ def visualize(pdbid, method):
     cmd.center("lig")
     cmd.zoom("lig", 5)
 
+
 cmd.extend("visualize", visualize)
