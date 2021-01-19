@@ -120,11 +120,14 @@ class AffinityModel(nn.ModuleDict):
         self.dropp = dropp
         self.layers_sizes = modules[0].layers_sizes
 
-    def forward(self, species, aevs):
+    def _forward_atomic(self, species, aevs):
         """
         Notes
         -----
         Copyright 2018-2020 Xiang Gao and other ANI developers.
+
+        This is extracted from the original code and computes
+        forward pass without aggregation.
         """
         species_ = species.flatten()
         aevs = aevs.flatten(0, 1)
@@ -138,6 +141,11 @@ class AffinityModel(nn.ModuleDict):
                 input_ = aevs.index_select(0, midx)
                 output.masked_scatter_(mask, m(input_).flatten())
         output = output.view_as(species)
+
+        return output
+
+    def forward(self, species, aevs):
+        output = self._forward_atomic(species, aevs)
         return torch.sum(output, dim=1)
 
     @staticmethod

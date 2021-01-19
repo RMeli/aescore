@@ -35,6 +35,10 @@ def test_load_mols(testdir, system, n_ligand, n_receptor, ext):
     lig = system.select_atoms("resname LIG")
 
     assert len(lig.atoms) == n_ligand
+    assert set(lig.resnames) == set(["LIG"])
+    assert set(lig.resnums) == set([1])
+    assert set(lig.resids) == set([1])
+    assert set(lig.record_types) == set(["HETATM"])
 
 
 def test_load_mols_fail_lig(testdir):

@@ -30,9 +30,14 @@ def _universe_from_openbabel(obmol):
         elements.append(qcel.periodictable.to_E(atom.atomicnum))
         coordinates[idx, :] = atom.coords
 
+    # Complete records are needed for merging with protein PDB file
     u.add_TopologyAttr("elements", elements)
     u.add_TopologyAttr("type", elements)
+    u.add_TopologyAttr("name", elements)
+    u.add_TopologyAttr("resnum", [1] * n_residues)
+    u.add_TopologyAttr("resid", [1] * n_residues)
     u.add_TopologyAttr("resname", ["LIG"] * n_residues)
+    u.add_TopologyAttr("record_types", ["HETATM"] * len(elements))
 
     u.atoms.positions = coordinates
 
