@@ -20,7 +20,7 @@ def _universe_from_openbabel(obmol):
     ----------
     obmol:
         Open Babel molecule
-    
+
     Returns
     -------
     MDAnalysis universe
@@ -153,8 +153,8 @@ def load_mols(
 
 
 def select(
-    system: mda.Universe, distance: float, removeHs: bool = False
-) -> Tuple[np.ndarray, np.ndarray]:
+    system: mda.Universe, distance: float, removeHs: bool = False, ligmask=False
+) -> Union[Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray, np.ndarray]]:
     """
     Select binding site.
 
@@ -169,25 +169,40 @@ def select(
 
     Returns
     -------
-    Tuple[np.ndarray, np.ndarray]
+    Union[Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray, np.ndarray]]
         Array of elements and array of cartesian coordinate for ligand and protein
-        atoms within the binding site
+        atoms within the binding site and, optionally, a mask for the ligand
 
     Notes
     -----
     The binding site is defined by residues with at least one atom within
     :code:`distance` from the ligand.
+
+    If :code:`ligmask==True`, this function also returns a mask for the ligand. This
+    is useful to propagate only atomic environments from the ligand trough the network.
     """
     resselection = system.select_atoms(
         f"(byres (around {distance} (resname LIG))) or (resname LIG)"
     )
 
+    # Mask for ligand
+    lmask = resselection.resnames == "LIG"
+
+    print(lmask)
+
+    # TODO: Write more concisely
     if removeHs:
         mask = resselection.elements != "H"
         # Elements from PDB file needs MDAnalysis@develop (see #2648)
-        return resselection.elements[mask], resselection.positions[mask]
+        if ligmask:
+            return resselection.elements[mask], resselection.positions[mask], lmask[mask]
+        else:
+            return resselection.elements[mask], resselection.positions[mask]
     else:
-        return resselection.elements, resselection.positions
+        if ligmask:
+            return resselection.elements, resselection.positions, lmask
+        else:
+            return resselection.elements, resselection.positions
 
 
 def load_mols_and_select(
@@ -667,7 +682,7 @@ class VSData(Data):
                 pdbid = os.path.dirname(recfile)
 
                 # Support mixed file or numerical label
-                try: # labelfile contains a single label
+                try:  # labelfile contains a single label
                     # FIXME: This is an hack to support VS predictions
                     #        without experimental values
                     # FIXME: It allows to load multiple systems even if
