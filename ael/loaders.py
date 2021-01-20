@@ -153,7 +153,7 @@ def load_mols(
 
 
 def select(
-    system: mda.Universe, distance: float, removeHs: bool = False, ligmask=False
+    system: mda.Universe, distance: float, removeHs: bool = False, ligmask: bool = False
 ) -> Union[Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray, np.ndarray]]:
     """
     Select binding site.
@@ -166,6 +166,8 @@ def select(
         Ligand-residues distance
     removeHs: bool
         Remove hydrogen atoms
+    ligmask: boolean
+        Flag to return mask for the ligand
 
     Returns
     -------
@@ -188,14 +190,16 @@ def select(
     # Mask for ligand
     lmask = resselection.resnames == "LIG"
 
-    print(lmask)
-
     # TODO: Write more concisely
     if removeHs:
         mask = resselection.elements != "H"
         # Elements from PDB file needs MDAnalysis@develop (see #2648)
         if ligmask:
-            return resselection.elements[mask], resselection.positions[mask], lmask[mask]
+            return (
+                resselection.elements[mask],
+                resselection.positions[mask],
+                lmask[mask],
+            )
         else:
             return resselection.elements[mask], resselection.positions[mask]
     else:
@@ -206,7 +210,12 @@ def select(
 
 
 def load_mols_and_select(
-    ligand: str, receptor: str, distance: float, datapaths, removeHs: bool = False
+    ligand: str,
+    receptor: str,
+    distance: float,
+    datapaths,
+    removeHs: bool = False,
+    ligmask=False,
 ) -> List[Tuple[np.ndarray, np.ndarray]]:
     """
     Load PDB files and select binding site.
@@ -223,6 +232,8 @@ def load_mols_and_select(
         Paths to root directory ligand and receptors are stored
     removeHs: bool
         Remove hydrogen atoms
+    ligmask: bool
+        Flag to return mask for the ligand
 
     Returns
     -------
@@ -236,7 +247,10 @@ def load_mols_and_select(
     """
     systems = load_mols(ligand, receptor, datapaths)
 
-    return [select(system, distance, removeHs=removeHs) for system in systems]
+    return [
+        select(system, distance, removeHs=removeHs, ligmask=ligmask)
+        for system in systems
+    ]
 
 
 def elements_to_atomicnums(elements: Collection[int]) -> np.ndarray:
