@@ -857,3 +857,35 @@ def test_pdbloader_ligand_coordinates(testdata, testdir):
 
     assert np.allclose(coordinates[1, 0], [17.735, -17.178, 22.612])
     assert np.allclose(coordinates[1, -1], [18.049, -13.554, 14.106])
+
+
+def test_pdbloader_ligmasks(testdata, testdir):
+    data = loaders.PDBData(testdata, 3.5, testdir, ligmask=True)
+
+    batch_size = 2
+
+    # Transform atomic numbers to species
+    amap = loaders.anummap(data.species)
+    data.atomicnums_to_idxs(amap)
+
+    loader = torch.utils.data.DataLoader(
+        data, batch_size=batch_size, shuffle=False, collate_fn=loaders.pad_collate
+    )
+    iloader = iter(loader)
+
+    ids, labels, (species, coordinates, ligmasks) = next(iloader)
+
+    assert (ids == np.array(["1a4r", "1a4w"])).all()
+
+    assert ligmasks[0].sum() == 28
+    assert ligmasks[1].sum() == 42
+
+    # 1a4r_lignad.pdb
+    assert coordinates[0, ligmasks[0]].shape == (28, 3)
+    assert np.allclose(coordinates[0, ligmasks[0]][0, :], [102.486, 24.870, -2.909])
+    assert np.allclose(coordinates[0, ligmasks[0]][-1, :], [104.205, 34.323, -1.866])
+
+    # 1a4w_lignad.pdb
+    assert coordinates[1, ligmasks[1]].shape == (42, 3)
+    assert np.allclose(coordinates[1, ligmasks[1]][0, :], [17.735, -17.178, 22.612])
+    assert np.allclose(coordinates[1, ligmasks[1]][-1, :], [18.049, -13.554, 14.106])

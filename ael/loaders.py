@@ -216,7 +216,7 @@ def load_mols_and_select(
     datapaths,
     removeHs: bool = False,
     ligmask=False,
-) -> List[Tuple[np.ndarray, np.ndarray]]:
+):
     """
     Load PDB files and select binding site.
 
@@ -280,7 +280,10 @@ def pad_collate(
     species_pad_value=-1,
     coords_pad_value=0,
     device: Optional[Union[str, torch.device]] = None,
-) -> Tuple[np.ndarray, torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+) -> Union[
+    Tuple[np.ndarray, torch.Tensor, Tuple[torch.Tensor, torch.Tensor]],
+    Tuple[np.ndarray, torch.Tensor, Tuple[torch.Tensor, torch.Tensor, torch.Tensor]],
+]:
     """
     Collate function to pad batches.
 
@@ -308,7 +311,11 @@ def pad_collate(
     """
 
     ids, labels, species_and_coordinates = zip(*batch)
-    species, coordinates = zip(*species_and_coordinates)
+
+    if len(species_and_coordinates[0]) == 2:  # No ligand mask
+        species, coordinates = zip(*species_and_coordinates)
+    else:
+        species, coordinates, ligmask = zip(*species_and_coordinates)
 
     pad_species = nn.utils.rnn.pad_sequence(
         species, batch_first=True, padding_value=species_pad_value
@@ -317,7 +324,20 @@ def pad_collate(
         coordinates, batch_first=True, padding_value=coords_pad_value
     )
 
-    return np.array(ids), torch.tensor(labels), (pad_species, pad_coordinates)
+    if len(species_and_coordinates[0]) == 2:  # No ligand mask
+        return np.array(ids), torch.tensor(labels), (pad_species, pad_coordinates)
+    else:
+        pad_ligmask = nn.utils.rnn.pad_sequence(
+            ligmask,
+            batch_first=True,
+            padding_value=False,
+        )
+
+        return (
+            np.array(ids),
+            torch.tensor(labels),
+            (pad_species, pad_coordinates, pad_ligmask),
+        )
 
 
 def anummap(*args) -> Dict[int, int]:
@@ -427,6 +447,7 @@ class Data(data.Dataset):
         self.labels: List[float] = []
         self.species: List[torch.Tensor] = []
         self.coordinates: List[torch.Tensor] = []
+        self.ligmasks: List[torch.Tensor] = []
         self.species_are_indices: bool = False
 
     def __len__(self) -> int:
@@ -442,7 +463,7 @@ class Data(data.Dataset):
 
     def __getitem__(
         self, idx: int
-    ) -> Tuple[str, float, Tuple[torch.Tensor, torch.Tensor]]:
+    ):  # -> Tuple[str, float, Tuple[torch.Tensor, torch.Tensor]]:
         """
         Get item from dataset.
 
@@ -456,11 +477,18 @@ class Data(data.Dataset):
         Tuple[str, float, Tuple[torch.Tensor, torch.Tensor]]
             Item from the dataset (PDB IDs, labels, species, coordinates)
         """
-        return (
-            self.ids[idx],
-            self.labels[idx],
-            (self.species[idx], self.coordinates[idx]),
-        )
+        if len(self.ligmasks) == 0:
+            return (
+                self.ids[idx],
+                self.labels[idx],
+                (self.species[idx], self.coordinates[idx]),
+            )
+        else:
+            return (
+                self.ids[idx],
+                self.labels[idx],
+                (self.species[idx], self.coordinates[idx], self.ligmasks[idx]),
+            )
 
     def _chemap(self, cmap: Union[Dict[str, str], Dict[str, List[str]]]):
         """
@@ -542,11 +570,12 @@ class PDBData(Data):
         cmap: Optional[Union[Dict[str, str], Dict[str, List[str]]]] = None,
         desc: Optional[str] = None,
         removeHs: bool = False,
+        ligmask: bool = False,
     ):
 
         super().__init__()
 
-        self._load(fname, distance, datapaths, cmap, desc, removeHs)
+        self._load(fname, distance, datapaths, cmap, desc, removeHs, ligmask)
 
     def _load(
         self,
@@ -556,6 +585,7 @@ class PDBData(Data):
         cmap: Optional[Union[Dict[str, str], Dict[str, List[str]]]] = None,
         desc: Optional[str] = None,
         removeHs: bool = False,
+        ligmask: bool = False,
     ) -> None:
 
         super().__init__()
@@ -565,6 +595,7 @@ class PDBData(Data):
 
         self.species = []
         self.coordinates = []
+        self.ligmasks = []
         self.labels = []
 
         self.ids = []
@@ -580,11 +611,22 @@ class PDBData(Data):
                 self.labels.append(float(label))
 
                 systems = load_mols_and_select(
-                    ligfile, recfile, distance, datapaths, removeHs=removeHs
+                    ligfile,
+                    recfile,
+                    distance,
+                    datapaths,
+                    removeHs=removeHs,
+                    ligmask=ligmask,
                 )
 
                 assert len(systems) == 1
-                els, coords = systems[0]
+                if ligmask:
+                    els, coords, mask = systems[0]
+
+                    # Store ligand mask
+                    self.ligmasks.append(torch.from_numpy(mask))
+                else:
+                    els, coords = systems[0]
 
                 atomicnums = elements_to_atomicnums(els)
 
