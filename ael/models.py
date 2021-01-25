@@ -120,7 +120,7 @@ class AffinityModel(nn.ModuleDict):
         self.dropp = dropp
         self.layers_sizes = modules[0].layers_sizes
 
-    def _forward_atomic(self, species, aevs):
+    def _forward_atomic(self, species, aevs, ligmasks=None):
         """
         Notes
         -----
@@ -132,10 +132,15 @@ class AffinityModel(nn.ModuleDict):
         species_ = species.flatten()
         aevs = aevs.flatten(0, 1)
 
+        if ligmasks is not None:
+            ligmasks_ = ligmasks.flatten()
+
         output = aevs.new_zeros(species_.shape)
 
         for i, (_, m) in enumerate(self.items()):
             mask = species_ == i
+            if ligmasks is not None:
+                mask = torch.logical_and(mask, ligmasks_)
             midx = mask.nonzero().flatten()
             if midx.shape[0] > 0:
                 input_ = aevs.index_select(0, midx)
@@ -144,8 +149,8 @@ class AffinityModel(nn.ModuleDict):
 
         return output
 
-    def forward(self, species, aevs):
-        output = self._forward_atomic(species, aevs)
+    def forward(self, species, aevs, ligmasks=None):
+        output = self._forward_atomic(species, aevs, ligmasks)
         return torch.sum(output, dim=1)
 
     @staticmethod

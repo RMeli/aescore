@@ -185,3 +185,73 @@ def test_forward_atomic(testdata, testdir):
     o = torch.sum(atomic_constributions, dim=1)
 
     assert np.allclose(output.cpu().detach().numpy(), o.cpu().detach().numpy())
+
+
+def test_forward_atomic_ligmask(testdata, testdir):
+    data = loaders.PDBData(testdata, 3.5, testdir, ligmask=True)
+
+    batch_size = 2
+
+    # Transform atomic numbers to species
+    amap = loaders.anummap(data.species)
+    data.atomicnums_to_idxs(amap)
+
+    n_species = len(amap)
+
+    loader = torch.utils.data.DataLoader(
+        data, batch_size=batch_size, shuffle=False, collate_fn=loaders.pad_collate
+    )
+    iloader = iter(loader)
+
+    _, labels, (species, coordinates, ligmasks) = next(iloader)
+
+    # Move everything to device
+    labels = labels.to(device)
+    species = species.to(device)
+    coordinates = coordinates.to(device)
+    ligmasks = ligmasks.to(device)
+
+    AEVC = torchani.AEVComputer(RcR, RcA, EtaR, RsR, EtaA, Zeta, RsA, TsA, n_species)
+
+    assert n_species == 6
+
+    # Radial functions: 1
+    # Angular functions: 1
+    # Number of species: 6
+    # AEV: 1 * 6 + 1 * 6 * (6 + 1) // 2 = 6 (R) + 21 (A) = 27
+    assert AEVC.aev_length == 27
+
+    aev = AEVC.forward((species, coordinates))
+
+    assert aev.species.shape == species.shape
+    assert aev.aevs.shape[0] == batch_size
+    assert aev.aevs.shape[-1] == 27
+
+    model = models.AffinityModel(n_species, AEVC.aev_length)
+
+    # Move model to device
+    model.to(device)
+
+    atomic_contributions = model._forward_atomic(aev.species, aev.aevs, ligmasks)
+
+    assert atomic_contributions.shape == species.shape
+
+    for b in range(batch_size):
+        lmask = ligmasks[b].cpu().detach().numpy()
+        ac = atomic_contributions[b].cpu().detach().numpy()
+
+        assert np.allclose(ac[~lmask], 0.0)
+
+    assert np.count_nonzero(ligmasks.cpu().detach().numpy()) == np.count_nonzero(
+        atomic_contributions.cpu().detach().numpy()
+    )
+
+    output = model(aev.species, aev.aevs, ligmasks)
+    output_nomask = model(aev.species, aev.aevs)
+
+    # Check output with/without mask are different
+    assert not torch.allclose(output, output_nomask)
+
+    o = torch.sum(atomic_contributions, dim=1)
+
+    assert np.allclose(output.cpu().detach().numpy(), o.cpu().detach().numpy())
