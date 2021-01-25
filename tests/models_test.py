@@ -178,11 +178,11 @@ def test_forward_atomic(testdata, testdir):
     output = model(aev.species, aev.aevs)
     assert output.shape == (batch_size,)
 
-    atomic_constributions = model._forward_atomic(aev.species, aev.aevs)
+    atomic_contributions = model._forward_atomic(aev.species, aev.aevs)
 
-    assert atomic_constributions.shape == species.shape
+    assert atomic_contributions.shape == species.shape
 
-    o = torch.sum(atomic_constributions, dim=1)
+    o = torch.sum(atomic_contributions, dim=1)
 
     assert np.allclose(output.cpu().detach().numpy(), o.cpu().detach().numpy())
 
