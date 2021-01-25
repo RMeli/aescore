@@ -208,7 +208,7 @@ def test_forward_atomic_ligmask(testdata, testdir):
     # Move everything to device
     labels = labels.to(device)
     species = species.to(device)
-    coordinates = coordinates.to(device)
+    coordinates = coordinates.to(device).requires_grad_(True)
     ligmasks = ligmasks.to(device)
 
     AEVC = torchani.AEVComputer(RcR, RcA, EtaR, RsR, EtaA, Zeta, RsA, TsA, n_species)
@@ -240,6 +240,7 @@ def test_forward_atomic_ligmask(testdata, testdir):
         lmask = ligmasks[b].cpu().detach().numpy()
         ac = atomic_contributions[b].cpu().detach().numpy()
 
+        # Maksed atoms need to have zero contribution
         assert np.allclose(ac[~lmask], 0.0)
 
     assert np.count_nonzero(ligmasks.cpu().detach().numpy()) == np.count_nonzero(
@@ -248,6 +249,21 @@ def test_forward_atomic_ligmask(testdata, testdir):
 
     output = model(aev.species, aev.aevs, ligmasks)
     output_nomask = model(aev.species, aev.aevs)
+
+    # Compute gradient of the loss with respect to aevs
+    loss = nn.MSELoss()(output, labels)
+    grad = torch.autograd.grad(loss, aev.aevs)[0]
+
+    # Check that gradients wrt AEVs for masked atoms are zero
+    # The same is not true for gradients wrt coordinates; coordinates of
+    # masked protein atoms enter the definition of ligand AEVs but their own AEVs
+    # are not propagated
+    for b in range(batch_size):
+        lmask = ligmasks[b].cpu().detach().numpy()
+        g = grad[b].cpu().detach().numpy()
+
+        assert np.allclose(g[~lmask, :], 0.0)
+        assert not np.allclose(g[lmask, :], 0.0)
 
     # Check output with/without mask are different
     assert not torch.allclose(output, output_nomask)
