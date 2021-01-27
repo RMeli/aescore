@@ -42,6 +42,8 @@ def trainparser(default="BP"):
         "-r", "--distance", type=float, default=0.1, help="Residue selection distance"
     )  # TODO: Change to larger distance
 
+    parser.add_argument("--ligmask", action="store_true", help="Use contributions from ligand atoms only")
+
     # Radial
     parser.add_argument("-RcR", type=float, default=5.2, help="Radial cutoff")
     parser.add_argument("-EtaR", type=float, default=16.0, help="Radial decay")
@@ -174,6 +176,9 @@ def predictparser():
     parser.add_argument(
         "-r", "--distance", type=float, default=0.1, help="Residue selection distance"
     )  # TODO: Read from test output file
+
+    parser.add_argument("--ligmask", action="store_true", help="Use contributions from ligand atoms only")
+
 
     parser.add_argument("-b", "--batchsize", type=int, default=64, help="Batch size")
 
