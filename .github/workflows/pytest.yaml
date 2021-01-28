@@ -55,7 +55,6 @@ jobs:
     - name: CodeCov
       uses: codecov/codecov-action@v1
       with:
-        file: ./coverage.xml
-        name: codecov-${{ matrix.os }}-py${{ matrix.python-version }}
+        file: coverage.xml
         fail_ci_if_error: true
         verbose: false
