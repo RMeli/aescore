@@ -83,7 +83,7 @@ def train(
 
         # Training
         for _, labels, species_coordinates_ligmasks in trainloader:
-            
+
             # Move data to device
             labels = labels.to(device)
             species = species_coordinates_ligmasks[0].to(device)

@@ -328,9 +328,7 @@ def pad_collate(
         return np.array(ids), torch.tensor(labels), (pad_species, pad_coordinates)
     else:
         pad_ligmask = nn.utils.rnn.pad_sequence(
-            ligmask,
-            batch_first=True,
-            padding_value=False,
+            ligmask, batch_first=True, padding_value=False,
         )
 
         return (

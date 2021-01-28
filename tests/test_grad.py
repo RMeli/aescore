@@ -114,8 +114,8 @@ def test_atomic(testdata, testdir):
             atomic = grad.atomic(species, coordinates, model, AEVC, device)
 
             # Add fictitious batch dimension
-            species = species.unsqueeze(0)
-            coordinates = coordinates.unsqueeze(0)
+            species = species.unsqueeze(0).to(device)
+            coordinates = coordinates.unsqueeze(0).to(device)
 
             assert atomic.shape == species.shape
 
