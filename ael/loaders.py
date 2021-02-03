@@ -54,7 +54,8 @@ def _universe_from_openbabel(obmol):
     u.add_TopologyAttr("resnum", [1] * n_residues)
     u.add_TopologyAttr("resid", [1] * n_residues)
     u.add_TopologyAttr("resname", ["LIG"] * n_residues)
-    u.add_TopologyAttr("record_types", ["HETATM"] * len(elements))
+    u.add_TopologyAttr("record_types", ["HETATM"] * n_atoms)
+    u.add_TopologyAttr("segid", [""] * n_residues)
 
     u.atoms.positions = coordinates
 
