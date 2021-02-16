@@ -149,18 +149,20 @@ class AffinityModel(nn.ModuleDict):
         mask is used non-ligand contributions are set to zero and therefore they do
         not contribute to the final sum.
         """
-        species_ = species.flatten()
+        if ligmasks is not None:
+            species_ = species.clone()
+            species_[~ligmasks] = -1
+        else:
+            species_ = species
+
+        species_ = species_.flatten()
         aevs = aevs.flatten(0, 1)
 
-        if ligmasks is not None:
-            ligmasks_ = ligmasks.flatten()
-
+        # size of species_ but same dtype and device of aevs
         output = aevs.new_zeros(species_.shape)
 
         for i, (_, m) in enumerate(self.items()):
             mask = species_ == i
-            if ligmasks is not None:
-                mask = torch.logical_and(mask, ligmasks_)
             midx = mask.nonzero().flatten()
             if midx.shape[0] > 0:
                 input_ = aevs.index_select(0, midx)
@@ -185,7 +187,6 @@ class AffinityModel(nn.ModuleDict):
         torch.Tensor
             Model output (affinity predictions)
         """
-
         output = self._forward_atomic(species, aevs, ligmasks)
         return torch.sum(output, dim=1)
 

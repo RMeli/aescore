@@ -445,7 +445,12 @@ def test_load_mols_and_select_removeHs_ligmask_multiple(
     recname = os.path.join(system, f"{system}_protein.pdb")
 
     atoms_and_coordinates = loaders.load_mols_and_select(
-        ligname, recname, distance, testdir, removeHs=True, ligmask=True,
+        ligname,
+        recname,
+        distance,
+        testdir,
+        removeHs=True,
+        ligmask=True,
     )
 
     for atoms, coordinates, ligmask in atoms_and_coordinates:
@@ -739,11 +744,13 @@ def test_pdbloader_species_cmap_toX(testdata, testdir):
 
     # TODO: Access to data loader is quite ugly... NamedTuple?
     assert np.allclose(
-        data[0][2][0], np.zeros(28),  # Species for first ligand  # Element X maps to 0
+        data[0][2][0],
+        np.zeros(28),  # Species for first ligand  # Element X maps to 0
     )
 
     assert np.allclose(
-        data[1][2][0], np.zeros(42),  # Species for second ligand  # Element X maps to 0
+        data[1][2][0],
+        np.zeros(42),  # Species for second ligand  # Element X maps to 0
     )
 
     batch_size = 2
@@ -766,10 +773,16 @@ def test_pdbloader_species_cmap_toX(testdata, testdir):
     assert species.shape == (batch_size, 42)  # Ligand 1a4w is the largest
 
     # Test ligand 1a4r (padded with -1)
-    assert torch.allclose(species[0, :], torch.tensor([0] * 28 + 14 * [-1]),)
+    assert torch.allclose(
+        species[0, :],
+        torch.tensor([0] * 28 + 14 * [-1]),
+    )
 
     # Test ligand 1a4w (no padding)
-    assert torch.allclose(species[1, :], torch.zeros(42, dtype=int),)
+    assert torch.allclose(
+        species[1, :],
+        torch.zeros(42, dtype=int),
+    )
 
 
 def test_pdbloader_species_cmap_OtoS(testdata, testdir):

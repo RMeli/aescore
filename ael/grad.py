@@ -243,10 +243,16 @@ if __name__ == "__main__":
 
                 ligfname = os.path.splitext(os.path.basename(ligfile))[0]
                 system.select_atoms("resname LIG").write(
-                    os.path.join(args.outpath, f"{ligfname}_{args.visualization}.pdb",)
+                    os.path.join(
+                        args.outpath,
+                        f"{ligfname}_{args.visualization}.pdb",
+                    )
                 )
 
                 recfname = os.path.splitext(os.path.basename(recfile))[0]
                 system.select_atoms("not resname LIG").write(
-                    os.path.join(args.outpath, f"{recfname}_{args.visualization}.pdb",)
+                    os.path.join(
+                        args.outpath,
+                        f"{recfname}_{args.visualization}.pdb",
+                    )
                 )
