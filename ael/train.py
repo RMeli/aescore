@@ -244,6 +244,7 @@ if __name__ == "__main__":
                 cmap,
                 desc="Validation set",
                 removeHs=args.removeHs,
+                ligmask=args.ligmask,
             )
         else:
             traindata = loaders.VSData(
