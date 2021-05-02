@@ -1,5 +1,7 @@
 #!/bin/bash
 
+mkdir -p out outl
+
 python -m ael.predict \
     Predict \
     ../tests/testdata/systems.dat \
