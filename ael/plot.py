@@ -64,17 +64,17 @@ def regplot(
             true, predicted, yerr=std, fmt="none", ecolor=color, alpha=0.25
         )
 
-    plt.xlabel("Experimental")
-    plt.ylabel("Predicted")
+    g.ax_joint.set_xlabel("Experimental")
+    g.ax_joint.set_ylabel("Predicted")
 
-    plt.text(
+    g.ax_joint.text(
         0.5,
         0.05,
-        f"RMSE = {rmse:.2f} | Pearson's $r$ = {pr:.2f} | Spearman's $\\rho$ = {sr:.2f}",
+        f"RMSE = {rmse:.2f} | Pearson's $r$ = {pr:.2f}",
         horizontalalignment="center",
         verticalalignment="center",
         bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.5},
-        transform=plt.gca().transAxes,
+        transform=g.ax_joint.transAxes,
     )
 
     plt.tight_layout()
