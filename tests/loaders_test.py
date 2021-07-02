@@ -158,6 +158,48 @@ def test_select(testdir, system, distance, n_ligand, n_receptor, ext):
     [
         # Distance 0.0 produces a segmentation fault (see #2656)
         ("1a4r", 0.1, 28, 0),
+        ("1a4r", 1.8, 28, 10),
+        ("1a4r", 2.0, 28, 42),
+        ("1a4r", 2.5, 28, 91),
+        ("1a4r", 3.0, 28, 188),
+        ("1a4w", 0.1, 42, 0),
+        ("1a4w", 1.95, 42, 22),
+        ("1a4w", 2.0, 42, 29),
+        ("1a4w", 2.5, 42, 60),
+        ("1a4w", 3.0, 42, 156),
+    ],
+)
+def test_select_ligmask(testdir, system, distance, n_ligand, n_receptor, ext):
+    """
+    Selection compared with PyMol selection:
+
+        sele byres PROTEIN within DISTANCE of LIGAND
+    """
+
+    ligname = os.path.join(system, f"{system}_ligand.{ext}")
+    recname = os.path.join(system, f"{system}_protein.pdb")
+
+    systems = loaders.load_mols(ligname, recname, testdir)
+
+    assert len(systems) == 1
+    system = systems[0]
+
+    atoms, coordinates, ligmask = loaders.select(system, distance, ligmask=True)
+
+    assert len(ligmask) == n_ligand + n_receptor
+    assert sum(ligmask) == n_ligand
+    assert sum(system.atoms.resnames == "LIG") == sum(ligmask)
+
+    assert len(atoms) == n_ligand + n_receptor
+    assert coordinates.shape == (n_ligand + n_receptor, 3)
+
+
+@pytest.mark.parametrize("ext", ["pdb", "mol2"])
+@pytest.mark.parametrize(
+    "system, distance, n_ligand, n_receptor",
+    [
+        # Distance 0.0 produces a segmentation fault (see #2656)
+        ("1a4r", 0.1, 28, 0),
         ("1a4r", 2.5, 28, 45),
         ("1a4w", 0.1, 42, 0),
         ("1a4w", 2.5, 42, 31),
@@ -183,7 +225,47 @@ def test_select_removeHs(testdir, system, distance, n_ligand, n_receptor, ext):
 
     atoms, coordinates = loaders.select(system, distance, removeHs=True)
 
-    # assert len(atoms) == n_ligand + n_receptor
+    assert len(atoms) == n_ligand + n_receptor
+    assert coordinates.shape == (n_ligand + n_receptor, 3)
+
+
+@pytest.mark.parametrize("ext", ["pdb", "mol2"])
+@pytest.mark.parametrize(
+    "system, distance, n_ligand, n_receptor",
+    [
+        # Distance 0.0 produces a segmentation fault (see #2656)
+        ("1a4r", 0.1, 28, 0),
+        ("1a4r", 2.5, 28, 45),
+        ("1a4w", 0.1, 42, 0),
+        ("1a4w", 2.5, 42, 31),
+    ],
+)
+def test_select_removeHs_ligmask(testdir, system, distance, n_ligand, n_receptor, ext):
+    """
+    Selection compared with PyMol selection:
+
+        sele byres PROTEIN within DISTANCE of LIGAND
+
+    Hydrogen atoms were counted by hand and removed
+    (H* does not select 1HD1 while *H* also selects CH2).
+    """
+
+    ligname = os.path.join(system, f"{system}_ligand.{ext}")
+    recname = os.path.join(system, f"{system}_protein.pdb")
+
+    systems = loaders.load_mols(ligname, recname, testdir)
+
+    assert len(systems) == 1
+    system = systems[0]
+
+    atoms, coordinates, ligmask = loaders.select(
+        system, distance, removeHs=True, ligmask=True
+    )
+
+    assert len(atoms) == len(ligmask)
+    assert sum(ligmask) == sum(system.atoms.resnames == "LIG") == n_ligand
+
+    assert len(atoms) == n_ligand + n_receptor
     assert coordinates.shape == (n_ligand + n_receptor, 3)
 
 
@@ -220,7 +302,51 @@ def test_load_mols_and_select(testdir, system, distance, n_ligand, n_receptor, e
 
     atoms, coordinates = systems[0]
 
-    # assert len(atoms) == n_ligand + n_receptor
+    assert len(atoms) == n_ligand + n_receptor
+    assert coordinates.shape == (n_ligand + n_receptor, 3)
+
+
+@pytest.mark.parametrize("ext", ["pdb", "mol2"])
+@pytest.mark.parametrize(
+    "system, distance, n_ligand, n_receptor",
+    [
+        # Distance 0.0 produces a segmentation fault (see #2656)
+        ("1a4r", 0.1, 28, 0),
+        ("1a4r", 1.8, 28, 10),
+        ("1a4r", 2.0, 28, 42),
+        ("1a4r", 2.5, 28, 91),
+        ("1a4r", 3.0, 28, 188),
+        ("1a4w", 0.1, 42, 0),
+        ("1a4w", 1.95, 42, 22),
+        ("1a4w", 2.0, 42, 29),
+        ("1a4w", 2.5, 42, 60),
+        ("1a4w", 3.0, 42, 156),
+    ],
+)
+def test_load_mols_and_select_ligmask(
+    testdir, system, distance, n_ligand, n_receptor, ext
+):
+    """
+    Selection compared with PyMol selection:
+
+        sele byres PROTEIN within DISTANCE of LIGAND
+    """
+
+    ligname = os.path.join(system, f"{system}_ligand.{ext}")
+    recname = os.path.join(system, f"{system}_protein.pdb")
+
+    systems = loaders.load_mols_and_select(
+        ligname, recname, distance, testdir, ligmask=True
+    )
+
+    assert len(systems) == 1
+
+    atoms, coordinates, ligmask = systems[0]
+
+    assert len(ligmask) == n_ligand + n_receptor
+    assert sum(ligmask) == n_ligand
+
+    assert len(atoms) == n_ligand + n_receptor
     assert coordinates.shape == (n_ligand + n_receptor, 3)
 
 
@@ -257,7 +383,7 @@ def test_load_mols_and_select_removeHs(
     assert len(systems) == 1
     atoms, coordinates = systems[0]
 
-    # assert len(atoms) == n_ligand + n_receptor
+    assert len(atoms) == n_ligand + n_receptor
     assert coordinates.shape == (n_ligand + n_receptor, 3)
 
 
@@ -290,6 +416,48 @@ def test_load_mols_and_select_removeHs_multiple(
     )
 
     for atoms, coordinates in atoms_and_coordinates:
+        assert len(atoms) == n_ligand
+        assert coordinates.shape == (n_ligand, 3)
+
+
+@pytest.mark.parametrize("ext", ["sdf", "mol2"])
+@pytest.mark.parametrize(
+    "system, distance, n_ligand",
+    [
+        # Distance 0.0 produces a segmentation fault (see #2656)
+        ("1a4r", 0.1, 28),
+        ("1a4w", 0.1, 42),
+    ],
+)
+def test_load_mols_and_select_removeHs_ligmask_multiple(
+    testdir, system, distance, n_ligand, ext
+):
+    """
+    Selection compared with PyMol selection:
+
+        sele byres PROTEIN within DISTANCE of LIGAND
+
+    Hydrogen atoms were counted by hand and removed
+    (H* does not select 1HD1 while *H* also selects CH2).
+    """
+
+    ligname = os.path.join(system, f"{system}_docking.{ext}")
+    recname = os.path.join(system, f"{system}_protein.pdb")
+
+    atoms_and_coordinates = loaders.load_mols_and_select(
+        ligname,
+        recname,
+        distance,
+        testdir,
+        removeHs=True,
+        ligmask=True,
+    )
+
+    for atoms, coordinates, ligmask in atoms_and_coordinates:
+        assert len(ligmask) == n_ligand
+        assert sum(ligmask) == n_ligand
+        assert ligmask.all()
+
         assert len(atoms) == n_ligand
         assert coordinates.shape == (n_ligand, 3)
 
@@ -690,3 +858,35 @@ def test_pdbloader_ligand_coordinates(testdata, testdir):
 
     assert np.allclose(coordinates[1, 0], [17.735, -17.178, 22.612])
     assert np.allclose(coordinates[1, -1], [18.049, -13.554, 14.106])
+
+
+def test_pdbloader_ligmasks(testdata, testdir):
+    data = loaders.PDBData(testdata, 3.5, testdir, ligmask=True)
+
+    batch_size = 2
+
+    # Transform atomic numbers to species
+    amap = loaders.anummap(data.species)
+    data.atomicnums_to_idxs(amap)
+
+    loader = torch.utils.data.DataLoader(
+        data, batch_size=batch_size, shuffle=False, collate_fn=loaders.pad_collate
+    )
+    iloader = iter(loader)
+
+    ids, labels, (species, coordinates, ligmasks) = next(iloader)
+
+    assert (ids == np.array(["1a4r", "1a4w"])).all()
+
+    assert ligmasks[0].sum() == 28
+    assert ligmasks[1].sum() == 42
+
+    # 1a4r_lignad.pdb
+    assert coordinates[0, ligmasks[0]].shape == (28, 3)
+    assert np.allclose(coordinates[0, ligmasks[0]][0, :], [102.486, 24.870, -2.909])
+    assert np.allclose(coordinates[0, ligmasks[0]][-1, :], [104.205, 34.323, -1.866])
+
+    # 1a4w_lignad.pdb
+    assert coordinates[1, ligmasks[1]].shape == (42, 3)
+    assert np.allclose(coordinates[1, ligmasks[1]][0, :], [17.735, -17.178, 22.612])
+    assert np.allclose(coordinates[1, ligmasks[1]][-1, :], [18.049, -13.554, 14.106])

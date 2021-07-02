@@ -53,6 +53,27 @@ def gradient(species, coordinates, label, model, AEVC, loss, device=None):
 
 
 def atomic(species, coordinates, model, AEVC, device=None):
+    """
+    Compute atomic contributions.
+
+    Parameters
+    ----------
+    species: np.array
+        Atomic species (mapped to indices)
+    coordinates: np.array
+        Atomic coordinates
+    model: torch.nn.Module
+        Trained model
+    AEVC: torchani.AEVComputer
+        AEV computer
+    device:
+        Computation device
+
+    Returns
+    -------
+    np.array
+        Atomic contributions
+    """
 
     if device is None:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
