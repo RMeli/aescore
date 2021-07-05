@@ -43,10 +43,12 @@ def gradient(species, coordinates, label, model, AEVC, loss, device=None):
 
     output = model(species, aevs)
 
-    ls = loss(output, label)
-
+    #ls = loss(output, label)
     # Compute gradient of the loss with respect to the coordinates
-    grad = torch.autograd.grad(ls, coordinates)[0]
+    #grad = torch.autograd.grad(ls, coordinates)[0]
+
+    # Compute gradient of the output with respect to the coordinates
+    grad = torch.autograd.grad(output, coordinates)[0]
 
     # Remove batch dimension
     return grad.squeeze(0)
