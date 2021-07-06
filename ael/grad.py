@@ -1,10 +1,9 @@
 import torch
-from torch import nn
 
 
-def gradient(species, coordinates, label, model, AEVC, loss, device=None):
+def gradient(species, coordinates, model, AEVC, device=None):
     """
-    Compute gradient of the loss with respect to atomic coordinates.
+    Compute gradient of the output with respect to atomic coordinates.
 
     Parameters
     ----------
@@ -33,7 +32,6 @@ def gradient(species, coordinates, label, model, AEVC, loss, device=None):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Move data to device and add batch dimension
-    label = torch.tensor(label).to(device).unsqueeze(0)
     species = species.to(device).unsqueeze(0)
     coordinates = (
         coordinates.clone().detach().requires_grad_(True).to(device).unsqueeze(0)
@@ -43,10 +41,8 @@ def gradient(species, coordinates, label, model, AEVC, loss, device=None):
 
     output = model(species, aevs)
 
-    ls = loss(output, label)
-
-    # Compute gradient of the loss with respect to the coordinates
-    grad = torch.autograd.grad(ls, coordinates)[0]
+    # Compute gradient of the output with respect to the coordinates
+    grad = torch.autograd.grad(output, coordinates)[0]
 
     # Remove batch dimension
     return grad.squeeze(0)
@@ -211,10 +207,8 @@ if __name__ == "__main__":
                 gradt = gradient(
                     torch.from_numpy(species),
                     torch.from_numpy(coordinates),
-                    float(label),
                     model,
                     AEVC,
-                    nn.MSELoss(),
                     device=args.device,
                 )
 

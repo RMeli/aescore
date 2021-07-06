@@ -389,14 +389,14 @@ anum_to_idx = np.vectorize(_anum_to_idx)
 
 
 def chemap(
-    atomicnums: List[np.ndarray], cmap: Union[Dict[str, str], Dict[str, List[str]]]
+    atomicnums: List[torch.Tensor], cmap: Union[Dict[str, str], Dict[str, List[str]]]
 ):
     """
     Map chemical elements into another.
 
     Parameters
     ----------
-    atomicnum: List[np.ndarray]
+    atomicnum: List[torch.Tensor]
         List of atomic numbers for every system
     chemap: Union[Dict[str, str],Dict[str, List[str]]
         Chemical mapping
@@ -631,8 +631,8 @@ class PDBData(Data):
 
                 atomicnums = elements_to_atomicnums(els)
 
-                # Species are converted to tensors in _atomicnums_to_idx
-                # Species are transformed to 0-based indices in _atomicnums_to_idx
+                # Species are converted to tensors in atomicnums_to_idx
+                # Species are transformed to 0-based indices in atomicnums_to_idx
                 self.species.append(atomicnums)
 
                 # Coordinates are transformed to tensor here and left unchanged
@@ -782,8 +782,8 @@ class VSData(Data):
 
                     atomicnums = elements_to_atomicnums(els)
 
-                    # Species are converted to tensors in _atomicnums_to_idx
-                    # Species are transformed to 0-based indices in _atomicnums_to_idx
+                    # Species are converted to tensors in atomicnums_to_idx
+                    # Species are transformed to 0-based indices in atomicnums_to_idx
                     self.species.append(atomicnums)
 
                     # Coordinates are transformed to tensor here and left unchanged
