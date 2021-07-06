@@ -2,7 +2,6 @@ import mlflow
 import numpy as np
 import torch
 import torchani
-from torch import nn
 
 from ael import grad, loaders, models
 
@@ -53,7 +52,6 @@ def test_grad(testdata, testdir):
         assert AEVC.aev_length == 20
 
         model = models.AffinityModel(n_species, AEVC.aev_length)
-        loss = nn.MSELoss()
 
         # Move model and AEVComputer to device
         model.to(device)
@@ -63,11 +61,9 @@ def test_grad(testdata, testdir):
         model.eval()
 
         for i in range(n_systems):
-            pdbid, label, (species, coordinates) = data[i]
+            pdbid, _, (species, coordinates) = data[i]
 
-            gradient = grad.gradient(
-                species, coordinates, label, model, AEVC, loss, device
-            )
+            gradient = grad.gradient(species, coordinates, model, AEVC, device)
 
             assert gradient.shape == coordinates.shape
 
