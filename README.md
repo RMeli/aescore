@@ -8,18 +8,33 @@ Learning protein-ligand binding affinity using atomic environment vectors.
 
 ## Installation
 
-```
+```bash
 conda create -f devtools/conda-envs/ael-test.yaml
 ```
 
-```
+```bash
 pip install .
+```
+
+## Usage
+
+### Training
+
+```bash
+python -m ael.train --help
+```
+
+### Inference
+
+```bash
+python -m ael.predict --help
 ```
 
 ## Test
 
 Run tests:
-```
+
+```bash
 pytest
 ```
 
@@ -34,10 +49,8 @@ pytest
 
 ## Copyright
 
-Copyright (c) 2020, Rocco Meli
-
+Copyright (c) 2020-2021, Rocco Meli
 
 ### Acknowledgements
- 
-Project based on the 
-[Computational Molecular Science Python Cookiecutter](https://github.com/molssi/cookiecutter-cms) version 1.3.
+
+Project based on the [Computational Molecular Science Python Cookiecutter](https://github.com/molssi/cookiecutter-cms) version 1.3.
