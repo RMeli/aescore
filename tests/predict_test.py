@@ -162,7 +162,12 @@ def test_predict_scaling(testdata, testdir):
     ids, true, predicted = predict.predict(model, AEVC, loader, scaler=scaler)
 
     assert np.allclose(true, original_labels)
-    assert np.allclose(predicted, scaler.inverse_transform(predicted_scaled))
+
+    # Reshape/squeeze needed from v1.0
+    # https://scikit-learn.org/stable/whats_new/v1.0.html#id20
+    assert np.allclose(
+        predicted, scaler.inverse_transform(predicted_scaled.reshape(-1, 1)).squeeze(-1)
+    )
 
 
 def test_evaluate(testdata, testdir, tmpdir):

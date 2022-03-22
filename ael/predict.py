@@ -77,8 +77,10 @@ def predict(model, AEVC, loader, scaler=None, baseline=None, device=None):
             labels = labels.cpu().numpy()
 
             if scaler is not None:
-                scaler.inverse_transform(output)
-                scaler.inverse_transform(labels)
+                # Reshape/squeeze needed from v1.0
+                # https://scikit-learn.org/stable/whats_new/v1.0.html#id20
+                scaler.inverse_transform(output.reshape(-1, 1)).squeeze(-1)
+                scaler.inverse_transform(labels.reshape(-1, 1)).squeeze(-1)
 
             if baseline is None:
                 # Store true and predicted values
