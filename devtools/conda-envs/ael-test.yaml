@@ -1,7 +1,7 @@
 name: ael-test
 channels:
-  - conda-forge
   - pytorch
+  - conda-forge
 dependencies:
   - python
   - pip
@@ -12,6 +12,7 @@ dependencies:
 
   - qcelemental
   - openbabel
+  - MDAnalysis
 
   - matplotlib
   - seaborn
@@ -20,13 +21,10 @@ dependencies:
 
   - pytorch
   - torchvision
+  - torchani
 
   - lark-parser
   - cython
-
-  - pip:
-    - torchani
-    - "git+https://github.com/RMeli/mdanalysis.git@develop#egg=MDAnalysis&subdirectory=package"
 
   - black
   - flake8
