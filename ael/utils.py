@@ -63,7 +63,7 @@ def loadmodel(path, eval: bool = True) -> nn.ModuleDict:
     if torch.cuda.is_available():
         d = torch.load(path)
     else:
-        d = torch.load(path, map_location=torch.device('cpu'))
+        d = torch.load(path, map_location=torch.device("cpu"))
 
     model = models.AffinityModel(**d["args"])
 
@@ -130,7 +130,7 @@ def loadAEVC(path) -> torchani.AEVComputer:
     if torch.cuda.is_available():
         d = torch.load(path)
     else:
-        d = torch.load(path, map_location=torch.device('cpu'))
+        d = torch.load(path, map_location=torch.device("cpu"))
 
     AEVC = torchani.AEVComputer(**d["args"])
 

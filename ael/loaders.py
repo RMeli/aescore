@@ -12,91 +12,24 @@ from openbabel import pybel
 from torch.utils import data
 
 
-def load_pdbs(
-    ligand: str, receptor: str, datapaths: Union[str, List[str]]
-) -> mda.Universe:
+def _universe_from_openbabel(obmol):
     """
-    Load ligand and receptor PDB files in a single mda.Universe
+    Create MDAnalysis universe from molecule parsed with OpenBabel.
 
     Parameters
     ----------
-    ligand: str
-        Ligand file
-    receptor: str
-        Receptor file
-    datapaths: Union[str, List[str]]
-        Paths to root directory ligand and receptors are stored
+    obmol:
+        Open Babel molecule
 
     Returns
     -------
-    mda.Universe
-        MDAnalysis universe for the protein-ligand complex
+    MDAnalysis universe
 
     Notes
     -----
-    The ligand is treated as a single entity named LIG. (:code:`resname LIG`).
-
-    The folders containing ligand and receptor files data are defined by
-    :code:`datapaths`.
+    The molecule has resnum/resis set to 1, resname set to LIG and record type
+    set to HETATM.
     """
-    assert os.path.splitext(ligand)[-1].lower() == ".pdb"
-    assert os.path.splitext(receptor)[-1].lower() == ".pdb"
-
-    # Ensure list
-    if isinstance(datapaths, str):
-        datapaths = [datapaths]
-
-    # TODO: Redirect warning instead of suppressing
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-
-        # Try to load ligand
-        for path in datapaths:
-            ligfile = os.path.join(path, ligand)
-            if os.path.isfile(ligfile):
-                try:
-                    ulig = mda.Universe(ligfile)
-                except Exception:
-                    print(f"Problems loading {ligfile}")
-                    raise
-
-                break
-        else:
-            # Runs only if nothing is found
-            raise RuntimeError(
-                f"Could not find ligand file {ligfile} in {datapaths}..."
-            )
-
-        # Try to load receptor
-        for path in datapaths:
-            recfile = os.path.join(path, receptor)
-            if os.path.isfile(recfile):
-                try:
-                    urec = mda.Universe(recfile)
-                except Exception:
-                    print(f"Problems loading {recfile}")
-                    raise
-
-                break
-        else:
-            # Runs only if nothing is found
-            raise RuntimeError(
-                f"Could not find receptor file {recfile} in {datapaths}..."
-            )
-
-    lig = ulig.select_atoms("all")
-    rec = urec.select_atoms("all")
-
-    # Rename ligand consistently
-    lig.residues.resnames = "LIG"
-
-    # Merge receptor and ligand in single universe
-    system = mda.core.universe.Merge(lig, rec)
-
-    return system
-
-
-def _universe_from_openbabel(obmol):
     n_atoms = len(obmol.atoms)
     n_residues = 1  # LIG
 
@@ -114,9 +47,15 @@ def _universe_from_openbabel(obmol):
         elements.append(qcel.periodictable.to_E(atom.atomicnum))
         coordinates[idx, :] = atom.coords
 
+    # Complete records are needed for merging with protein PDB file
     u.add_TopologyAttr("elements", elements)
     u.add_TopologyAttr("type", elements)
+    u.add_TopologyAttr("name", elements)
+    u.add_TopologyAttr("resnum", [1] * n_residues)
+    u.add_TopologyAttr("resid", [1] * n_residues)
     u.add_TopologyAttr("resname", ["LIG"] * n_residues)
+    u.add_TopologyAttr("record_types", ["HETATM"] * n_atoms)
+    u.add_TopologyAttr("segid", [""] * n_residues)
 
     u.atoms.positions = coordinates
 
@@ -157,7 +96,8 @@ def load_mols(
 
     ext = os.path.splitext(ligand)[-1].lower()[1:]
 
-    assert ext == "sdf" or ext == "mol2"
+    # Assumes receptor is a PDB file
+    # TODO: relax this assumption
     assert os.path.splitext(receptor)[-1].lower() == ".pdb"
 
     # Ensure list
@@ -214,8 +154,8 @@ def load_mols(
 
 
 def select(
-    system: mda.Universe, distance: float, removeHs: bool = False
-) -> Tuple[np.ndarray, np.ndarray]:
+    system: mda.Universe, distance: float, removeHs: bool = False, ligmask: bool = False
+) -> Union[Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray, np.ndarray]]:
     """
     Select binding site.
 
@@ -227,67 +167,57 @@ def select(
         Ligand-residues distance
     removeHs: bool
         Remove hydrogen atoms
+    ligmask: boolean
+        Flag to return mask for the ligand
 
     Returns
     -------
-    Tuple[np.ndarray, np.ndarray]
+    Union[Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray, np.ndarray]]
         Array of elements and array of cartesian coordinate for ligand and protein
-        atoms within the binding site
+        atoms within the binding site and, optionally, a mask for the ligand
 
     Notes
     -----
     The binding site is defined by residues with at least one atom within
     :code:`distance` from the ligand.
+
+    If :code:`ligmask==True`, this function also returns a mask for the ligand. This
+    is useful to propagate only atomic environments from the ligand trough the network.
     """
     resselection = system.select_atoms(
         f"(byres (around {distance} (resname LIG))) or (resname LIG)"
     )
 
+    # Mask for ligand
+    lmask = resselection.resnames == "LIG"
+
+    # TODO: Write more concisely
     if removeHs:
         mask = resselection.elements != "H"
         # Elements from PDB file needs MDAnalysis@develop (see #2648)
-        return resselection.elements[mask], resselection.positions[mask]
+        if ligmask:
+            return (
+                resselection.elements[mask],
+                resselection.positions[mask],
+                lmask[mask],
+            )
+        else:
+            return resselection.elements[mask], resselection.positions[mask]
     else:
-        return resselection.elements, resselection.positions
-
-
-def load_pdbs_and_select(
-    ligand: str, receptor: str, distance: float, datapaths, removeHs: bool = False
-) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Load PDB files and select binding site.
-
-    Parameters
-    ----------
-    ligand: str
-        Ligand file
-    receptor: str
-        Receptor file
-    distance: float
-        Ligand-residues distance
-    datapaths: Union[str, List[str]]
-        Paths to root directory ligand and receptors are stored
-    removeHs: bool
-        Remove hydrogen atoms
-
-    Returns
-    -------
-    Tuple[np.ndarray, np.ndarray]
-        Array of elements and array of cartesian coordinate for ligand and protein
-        atoms within the binding site
-
-    Notes
-    -----
-    Combines :func:`load_pdbs` and :func:`select`.
-    """
-    system = load_pdbs(ligand, receptor, datapaths)
-
-    return select(system, distance, removeHs=removeHs)
+        if ligmask:
+            return resselection.elements, resselection.positions, lmask
+        else:
+            return resselection.elements, resselection.positions
 
 
 def load_mols_and_select(
-    ligand: str, receptor: str, distance: float, datapaths, removeHs: bool = False
-) -> List[Tuple[np.ndarray, np.ndarray]]:
+    ligand: str,
+    receptor: str,
+    distance: float,
+    datapaths,
+    removeHs: bool = False,
+    ligmask=False,
+):
     """
     Load PDB files and select binding site.
 
@@ -303,6 +233,8 @@ def load_mols_and_select(
         Paths to root directory ligand and receptors are stored
     removeHs: bool
         Remove hydrogen atoms
+    ligmask: bool
+        Flag to return mask for the ligand
 
     Returns
     -------
@@ -316,7 +248,10 @@ def load_mols_and_select(
     """
     systems = load_mols(ligand, receptor, datapaths)
 
-    return [select(system, distance, removeHs=removeHs) for system in systems]
+    return [
+        select(system, distance, removeHs=removeHs, ligmask=ligmask)
+        for system in systems
+    ]
 
 
 def elements_to_atomicnums(elements: Collection[int]) -> np.ndarray:
@@ -346,7 +281,10 @@ def pad_collate(
     species_pad_value=-1,
     coords_pad_value=0,
     device: Optional[Union[str, torch.device]] = None,
-) -> Tuple[np.ndarray, torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+) -> Union[
+    Tuple[np.ndarray, torch.Tensor, Tuple[torch.Tensor, torch.Tensor]],
+    Tuple[np.ndarray, torch.Tensor, Tuple[torch.Tensor, torch.Tensor, torch.Tensor]],
+]:
     """
     Collate function to pad batches.
 
@@ -374,7 +312,11 @@ def pad_collate(
     """
 
     ids, labels, species_and_coordinates = zip(*batch)
-    species, coordinates = zip(*species_and_coordinates)
+
+    if len(species_and_coordinates[0]) == 2:  # No ligand mask
+        species, coordinates = zip(*species_and_coordinates)
+    else:
+        species, coordinates, ligmask = zip(*species_and_coordinates)
 
     pad_species = nn.utils.rnn.pad_sequence(
         species, batch_first=True, padding_value=species_pad_value
@@ -383,7 +325,20 @@ def pad_collate(
         coordinates, batch_first=True, padding_value=coords_pad_value
     )
 
-    return np.array(ids), torch.tensor(labels), (pad_species, pad_coordinates)
+    if len(species_and_coordinates[0]) == 2:  # No ligand mask
+        return np.array(ids), torch.tensor(labels), (pad_species, pad_coordinates)
+    else:
+        pad_ligmask = nn.utils.rnn.pad_sequence(
+            ligmask,
+            batch_first=True,
+            padding_value=False,
+        )
+
+        return (
+            np.array(ids),
+            torch.tensor(labels),
+            (pad_species, pad_coordinates, pad_ligmask),
+        )
 
 
 def anummap(*args) -> Dict[int, int]:
@@ -434,14 +389,14 @@ anum_to_idx = np.vectorize(_anum_to_idx)
 
 
 def chemap(
-    atomicnums: List[np.ndarray], cmap: Union[Dict[str, str], Dict[str, List[str]]]
+    atomicnums: List[torch.Tensor], cmap: Union[Dict[str, str], Dict[str, List[str]]]
 ):
     """
     Map chemical elements into another.
 
     Parameters
     ----------
-    atomicnum: List[np.ndarray]
+    atomicnum: List[torch.Tensor]
         List of atomic numbers for every system
     chemap: Union[Dict[str, str],Dict[str, List[str]]
         Chemical mapping
@@ -493,6 +448,7 @@ class Data(data.Dataset):
         self.labels: List[float] = []
         self.species: List[torch.Tensor] = []
         self.coordinates: List[torch.Tensor] = []
+        self.ligmasks: List[torch.Tensor] = []
         self.species_are_indices: bool = False
 
     def __len__(self) -> int:
@@ -508,7 +464,7 @@ class Data(data.Dataset):
 
     def __getitem__(
         self, idx: int
-    ) -> Tuple[str, float, Tuple[torch.Tensor, torch.Tensor]]:
+    ):  # -> Tuple[str, float, Tuple[torch.Tensor, torch.Tensor]]:
         """
         Get item from dataset.
 
@@ -522,11 +478,18 @@ class Data(data.Dataset):
         Tuple[str, float, Tuple[torch.Tensor, torch.Tensor]]
             Item from the dataset (PDB IDs, labels, species, coordinates)
         """
-        return (
-            self.ids[idx],
-            self.labels[idx],
-            (self.species[idx], self.coordinates[idx]),
-        )
+        if len(self.ligmasks) == 0:
+            return (
+                self.ids[idx],
+                self.labels[idx],
+                (self.species[idx], self.coordinates[idx]),
+            )
+        else:
+            return (
+                self.ids[idx],
+                self.labels[idx],
+                (self.species[idx], self.coordinates[idx], self.ligmasks[idx]),
+            )
 
     def _chemap(self, cmap: Union[Dict[str, str], Dict[str, List[str]]]):
         """
@@ -608,11 +571,12 @@ class PDBData(Data):
         cmap: Optional[Union[Dict[str, str], Dict[str, List[str]]]] = None,
         desc: Optional[str] = None,
         removeHs: bool = False,
+        ligmask: bool = False,
     ):
 
         super().__init__()
 
-        self._load(fname, distance, datapaths, cmap, desc, removeHs)
+        self._load(fname, distance, datapaths, cmap, desc, removeHs, ligmask)
 
     def _load(
         self,
@@ -622,6 +586,7 @@ class PDBData(Data):
         cmap: Optional[Union[Dict[str, str], Dict[str, List[str]]]] = None,
         desc: Optional[str] = None,
         removeHs: bool = False,
+        ligmask: bool = False,
     ) -> None:
 
         super().__init__()
@@ -631,6 +596,7 @@ class PDBData(Data):
 
         self.species = []
         self.coordinates = []
+        self.ligmasks = []
         self.labels = []
 
         self.ids = []
@@ -645,14 +611,28 @@ class PDBData(Data):
 
                 self.labels.append(float(label))
 
-                els, coords = load_pdbs_and_select(
-                    ligfile, recfile, distance, datapaths, removeHs=removeHs
+                systems = load_mols_and_select(
+                    ligfile,
+                    recfile,
+                    distance,
+                    datapaths,
+                    removeHs=removeHs,
+                    ligmask=ligmask,
                 )
+
+                assert len(systems) == 1
+                if ligmask:
+                    els, coords, mask = systems[0]
+
+                    # Store ligand mask
+                    self.ligmasks.append(torch.from_numpy(mask))
+                else:
+                    els, coords = systems[0]
 
                 atomicnums = elements_to_atomicnums(els)
 
-                # Species are converted to tensors in _atomicnums_to_idx
-                # Species are transformed to 0-based indices in _atomicnums_to_idx
+                # Species are converted to tensors in atomicnums_to_idx
+                # Species are transformed to 0-based indices in atomicnums_to_idx
                 self.species.append(atomicnums)
 
                 # Coordinates are transformed to tensor here and left unchanged
@@ -759,15 +739,27 @@ class VSData(Data):
                 pdbid = os.path.dirname(recfile)
 
                 # Support mixed file or numerical label
-                try:
-                    labels = [float(labelfile)]
-                    ids = [idsuffix]
+                try:  # labelfile contains a single label
+                    # FIXME: This is an hack to support VS predictions
+                    #        without experimental values
+                    # FIXME: It allows to load multiple systems even if
+                    #        a 0.00 label is provided
+                    if os.path.splitext(ligfile)[-1].lower() == ".pdb":
+                        labels = [float(labelfile)]
+                        ids = [idsuffix]
 
-                    systems = [
-                        load_pdbs_and_select(
+                        systems = load_mols_and_select(
                             ligfile, recfile, distance, datapaths, removeHs=removeHs
                         )
-                    ]
+
+                        assert len(labels) == len(ids) == len(systems) == 1
+                    else:
+                        systems = load_mols_and_select(
+                            ligfile, recfile, distance, datapaths, removeHs=removeHs
+                        )
+
+                        labels = [float(labelfile)] * len(systems)
+                        ids = [str(i) for i in range(len(systems))]
 
                 except ValueError:  # labelfile contains a file path, not a label
                     ids = np.loadtxt(
@@ -790,8 +782,8 @@ class VSData(Data):
 
                     atomicnums = elements_to_atomicnums(els)
 
-                    # Species are converted to tensors in _atomicnums_to_idx
-                    # Species are transformed to 0-based indices in _atomicnums_to_idx
+                    # Species are converted to tensors in atomicnums_to_idx
+                    # Species are transformed to 0-based indices in atomicnums_to_idx
                     self.species.append(atomicnums)
 
                     # Coordinates are transformed to tensor here and left unchanged

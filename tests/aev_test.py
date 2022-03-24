@@ -87,15 +87,12 @@ def test_h2():
     # Map atomic numbers to index
     sc = SC((atomicnums, coordinates))
 
-    # Species is returned on CPU, see TorchANI#461
-    assert torch.allclose(sc.species, torch.tensor([0, 0]))
+    assert torch.allclose(sc.species, torch.tensor([0, 0], device=device))
     assert torch.allclose(sc.coordinates, coordinates)
 
-    # Species is returned on CPU, see TorchANI#461
-    aev = AEVC.forward((sc.species.to(device), sc.coordinates))
+    aev = AEVC.forward((sc.species, sc.coordinates))
 
-    # Species is returned on CPU, see TorchANI#461
-    assert torch.allclose(sc.species, aev.species.cpu())
+    assert torch.allclose(sc.species, aev.species)
 
     # Remove batch dimension and store as numpy array
     aevs = aev.aevs.squeeze(0).cpu().numpy()
@@ -156,15 +153,12 @@ def test_h2o():
     # Map atomic numbers to index
     sc = SC((atomicnums, coordinates))
 
-    # Species is returned on CPU, see TorchANI#461
-    assert torch.allclose(sc.species, torch.tensor([1, 0, 0]))
+    assert torch.allclose(sc.species, torch.tensor([1, 0, 0], device=device))
     assert torch.allclose(sc.coordinates, coordinates)
 
-    # Species is returned on CPU, see TorchANI#461
-    aev = AEVC.forward((sc.species.to(device), sc.coordinates))
+    aev = AEVC.forward((sc.species, sc.coordinates))
 
-    # Species is returned on CPU, see TorchANI#461
-    assert torch.allclose(sc.species, aev.species.cpu())
+    assert torch.allclose(sc.species, aev.species)
 
     # Remove batch dimension and store as numpy array
     aevs = aev.aevs.squeeze(0).cpu().numpy()

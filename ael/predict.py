@@ -55,25 +55,32 @@ def predict(model, AEVC, loader, scaler=None, baseline=None, device=None):
         baseline_ids, baseline_values, logK = baseline
 
     with torch.no_grad():  # Turn off gradient computation during inference
-        for ids, labels, (species, coordinates) in loader:
+        for ids, labels, species_coordinates_ligmasks in loader:
 
             # Move data to device
             labels = labels.to(device)
-            species = species.to(device)
-            coordinates = coordinates.to(device)
+            species = species_coordinates_ligmasks[0].to(device)
+            coordinates = species_coordinates_ligmasks[1].to(device)
+
+            if len(species_coordinates_ligmasks) == 2:
+                ligmasks = None
+            else:
+                ligmasks = species_coordinates_ligmasks[2].to(device)
 
             # Compute AEV
             aevs = AEVC.forward((species, coordinates)).aevs
 
             # Forward pass
-            output = model(species, aevs)
+            output = model(species, aevs, ligmasks)
 
             output = output.cpu().numpy()
             labels = labels.cpu().numpy()
 
             if scaler is not None:
-                scaler.inverse_transform(output)
-                scaler.inverse_transform(labels)
+                # Reshape/squeeze needed from v1.0
+                # https://scikit-learn.org/stable/whats_new/v1.0.html#id20
+                scaler.inverse_transform(output.reshape(-1, 1)).squeeze(-1)
+                scaler.inverse_transform(labels.reshape(-1, 1)).squeeze(-1)
 
             if baseline is None:
                 # Store true and predicted values
@@ -225,6 +232,7 @@ if __name__ == "__main__":
                 cmap,
                 desc="",
                 removeHs=args.removeHs,
+                ligmask=args.ligmask,
             )
         else:
             testdata = loaders.VSData(

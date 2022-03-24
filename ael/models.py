@@ -120,15 +120,45 @@ class AffinityModel(nn.ModuleDict):
         self.dropp = dropp
         self.layers_sizes = modules[0].layers_sizes
 
-    def forward(self, species, aevs):
+    def _forward_atomic(self, species, aevs, ligmasks=None):
         """
+        Forward pass for individual atomic environments.
+
+        Parameters
+        ----------
+        species: torch.Tensor
+            Species
+        aevs: torch.Tensor
+            Atomic environment vectors
+        ligmasks: torch.Tensor
+            Masks for ligand atoms
+
+        Returns
+        -------
+        torch.Tensor
+            Atomic contributions (unmasked)
+
         Notes
         -----
         Copyright 2018-2020 Xiang Gao and other ANI developers.
+
+        This is extracted from the original code and computes
+        forward pass without aggregation.
+
+        Atomic contributions are not masked by ligand atoms. However, when a ligand
+        mask is used non-ligand contributions are set to zero and therefore they do
+        not contribute to the final sum.
         """
-        species_ = species.flatten()
+        if ligmasks is not None:
+            species_ = species.clone()
+            species_[~ligmasks] = -1
+        else:
+            species_ = species
+
+        species_ = species_.flatten()
         aevs = aevs.flatten(0, 1)
 
+        # size of species_ but same dtype and device of aevs
         output = aevs.new_zeros(species_.shape)
 
         for i, (_, m) in enumerate(self.items()):
@@ -138,11 +168,33 @@ class AffinityModel(nn.ModuleDict):
                 input_ = aevs.index_select(0, midx)
                 output.masked_scatter_(mask, m(input_).flatten())
         output = output.view_as(species)
+
+        return output
+
+    def forward(self, species, aevs, ligmasks=None):
+        """
+        Parameters
+        ----------
+        species: torch.Tensor
+            Species
+        aevs: torch.Tensor
+            Atomic environment vectors
+        ligmasks: torch.Tensor
+            Masks for ligand atoms
+
+        Returns
+        -------
+        torch.Tensor
+            Model output (affinity predictions)
+        """
+        output = self._forward_atomic(species, aevs, ligmasks)
         return torch.sum(output, dim=1)
 
     @staticmethod
     def ensureOrderedDict(modules):
         """
+        Ensure ordered dictionary (for old-ish Python versions)
+
         Notes
         -----
         Copyright 2018-2020 Xiang Gao and other ANI developers.

@@ -82,18 +82,23 @@ def train(
         epoch_loss: float = 0.0
 
         # Training
-        for _, labels, (species, coordinates) in trainloader:
+        for _, labels, species_coordinates_ligmasks in trainloader:
 
             # Move data to device
             labels = labels.to(device)
-            species = species.to(device)
-            coordinates = coordinates.to(device)
+            species = species_coordinates_ligmasks[0].to(device)
+            coordinates = species_coordinates_ligmasks[1].to(device)
+
+            if len(species_coordinates_ligmasks) == 2:
+                ligmasks = None
+            else:
+                ligmasks = species_coordinates_ligmasks[2].to(device)
 
             aevs = AEVC.forward((species, coordinates)).aevs
 
             optimizer.zero_grad()
 
-            output = model(species, aevs)
+            output = model(species, aevs, ligmasks)
 
             loss = loss_function(output, labels)
 
@@ -112,17 +117,22 @@ def train(
 
             # Validation
             with torch.no_grad():
-                for _, labels, (species, coordinates) in testloader:
+                for _, labels, species_coordinates_ligmasks in testloader:
 
                     # Move data to device
                     labels = labels.to(device)
-                    species = species.to(device)
-                    coordinates = coordinates.to(device)
+                    species = species_coordinates_ligmasks[0].to(device)
+                    coordinates = species_coordinates_ligmasks[1].to(device)
+
+                    if len(species_coordinates_ligmasks) == 2:
+                        ligmasks = None
+                    else:
+                        ligmasks = species_coordinates_ligmasks[2].to(device)
 
                     aevs = AEVC.forward((species, coordinates)).aevs
 
                     # Forward pass
-                    output = model(species, aevs)
+                    output = model(species, aevs, ligmasks)
 
                     valid_loss += loss_function(output, labels).item()
 
@@ -225,6 +235,7 @@ if __name__ == "__main__":
                 cmap,
                 desc="Training set",
                 removeHs=args.removeHs,
+                ligmask=args.ligmask,
             )
             validdata: Union[loaders.PDBData, loaders.VSData] = loaders.PDBData(
                 args.validfile,
@@ -233,6 +244,7 @@ if __name__ == "__main__":
                 cmap,
                 desc="Validation set",
                 removeHs=args.removeHs,
+                ligmask=args.ligmask,
             )
         else:
             traindata = loaders.VSData(
@@ -270,6 +282,7 @@ if __name__ == "__main__":
                     cmap,
                     desc="Test set",
                     removeHs=args.removeHs,
+                    ligmask=args.ligmask,
                 )
             else:
                 testdata = loaders.VSData(

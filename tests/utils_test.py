@@ -125,7 +125,12 @@ def test_labels_scaler_single(testdata, testdir):
     scaler = utils.labels_scaler(data)
 
     assert np.allclose(data.labels, [1.0, -1.0])
-    assert np.allclose(labels, scaler.inverse_transform(data.labels))
+
+    # Reshape/squeeze needed from v1.0
+    # https://scikit-learn.org/stable/whats_new/v1.0.html#id20
+    assert np.allclose(
+        labels, scaler.inverse_transform(data.labels.reshape(-1, 1)).squeeze(-1)
+    )
 
 
 def test_labels_scaler(testdata, testdir):
@@ -141,8 +146,14 @@ def test_labels_scaler(testdata, testdir):
     assert np.allclose(data1.labels, [1.0, -1.0])
     assert np.allclose(data2.labels, [1.0, -1.0])
 
-    assert np.allclose(labels1, scaler.inverse_transform(data1.labels))
-    assert np.allclose(labels2, scaler.inverse_transform(data2.labels))
+    # Reshape/squeeze needed from v1.0
+    # https://scikit-learn.org/stable/whats_new/v1.0.html#id20
+    assert np.allclose(
+        labels1, scaler.inverse_transform(data1.labels.reshape(-1, 1)).squeeze(-1)
+    )
+    assert np.allclose(
+        labels2, scaler.inverse_transform(data2.labels.reshape(-1, 1)).squeeze(-1)
+    )
 
 
 @pytest.mark.parametrize(
