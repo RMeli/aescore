@@ -3,6 +3,7 @@
 ![flake8](https://github.com/RMeli/ael/workflows/flake8/badge.svg)
 ![mypy](https://github.com/RMeli/ael/workflows/mypy/badge.svg)
 ![pytest](https://github.com/RMeli/ael/workflows/pytest/badge.svg)
+[![codecov](https://codecov.io/gh/RMeli/aescore/branch/master/graph/badge.svg?token=pVoBBFALD1)](https://codecov.io/gh/RMeli/aescore)
 
 Learning protein-ligand binding affinity using atomic environment vectors.
 
