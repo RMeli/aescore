@@ -59,4 +59,3 @@ jobs:
         files: ./coverage.xml, coverage.xml
         flags: unittests
         name: codecov-${{ matrix.os }}-py${{ matrix.python-version }}
-        verbose: true
