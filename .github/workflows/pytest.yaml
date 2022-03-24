@@ -56,6 +56,7 @@ jobs:
     - name: CodeCov
       uses: codecov/codecov-action@v2
       with:
+        files: ./coverage.xml, coverage.xml
         flags: unittests
         name: codecov-${{ matrix.os }}-py${{ matrix.python-version }}
         verbose: true
