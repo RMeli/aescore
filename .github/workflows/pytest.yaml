@@ -33,11 +33,12 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
         environment-file: devtools/conda-envs/ael-test.yaml
-        channels: conda-forge, pytorch
+        channels: pytorch, conda-forge
         activate-environment: ael-test
         auto-update-conda: true
         auto-activate-base: false
         show-channel-urls: true
+        use-mamba: true
 
     - name: Install package
       # conda setup requires this special shell
