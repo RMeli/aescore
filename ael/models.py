@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 import torch
 from torch import nn
@@ -205,3 +205,52 @@ class AffinityModel(nn.ModuleDict):
         for i, m in enumerate(modules):
             od[str(i)] = m
         return od
+
+
+class SiameseAffinityModel(AffinityModel):
+    """
+    Affinity prediction from AEVs using a siamese architecture.
+
+    Parameters
+    ----------
+    n_species: int
+        Number of species
+    aev_length: int
+        Length of the atomic environment vectors
+    layers_sizes: Optional[List[int]] = None
+        Layers' dimensions for each atomic NN
+    dropp: Optional[float]
+        Dropout probability
+    """
+
+    def __init__(
+        self,
+        n_species: int,
+        aev_length: int,
+        layers_sizes: Optional[List[int]] = None,
+        dropp: Optional[float] = None,
+    ):
+        super().__init__(n_species, aev_length, layers_sizes, dropp)
+
+    def forward(self, species: Dict[str, torch.Tensor], aevs: Dict[str, torch.Tensor]):
+        """
+        Parameters
+        ----------
+        species: Dict[str, torch.Tensor]
+            Species
+        aevs: Dict[str, torch.Tensor]
+            Atomic environment vectors
+
+        Returns
+        -------
+        torch.Tensor
+            Model output (affinity predictions)
+
+        Notes
+        -----
+        """
+        lig = self._forward_atomic(species["lig"], aevs["lig"])
+        rec = self._forward_atomic(species["rec"], aevs["rec"])
+        ligrec = self._forward_atomic(species["ligrec"], aevs["ligrec"])
+
+        return torch.sum(ligrec, dim=1) - torch.sum(lig, dim=1) - torch.sum(rec, dim=1)

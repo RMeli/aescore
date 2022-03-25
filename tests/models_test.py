@@ -271,3 +271,84 @@ def test_forward_atomic_ligmask(testdata, testdir):
     o = torch.sum(atomic_contributions, dim=1)
 
     assert np.allclose(output.cpu().detach().numpy(), o.cpu().detach().numpy())
+
+
+def test_forward_atomic_siamese(testdata, testdir):
+    data = loaders.PDBData(testdata, 3.5, testdir, ligmask=True)
+
+    batch_size = 2
+
+    # Transform atomic numbers to species
+    amap = loaders.anummap(data.species)
+    data.atomicnums_to_idxs(amap)
+
+    n_species = len(amap)
+
+    loader = torch.utils.data.DataLoader(
+        data, batch_size=batch_size, shuffle=False, collate_fn=loaders.pad_collate
+    )
+    iloader = iter(loader)
+
+    _, labels, (species, coordinates, ligmasks) = next(iloader)
+
+    # Move everything to device
+    labels = labels.to(device)
+    species = species.to(device)
+    coordinates = coordinates.to(device).requires_grad_(True)
+    ligmasks = ligmasks.to(device)
+
+    AEVC = torchani.AEVComputer(RcR, RcA, EtaR, RsR, EtaA, Zeta, RsA, TsA, n_species)
+
+    assert n_species == 6
+
+    # Radial functions: 1
+    # Angular functions: 1
+    # Number of species: 6
+    # AEV: 1 * 6 + 1 * 6 * (6 + 1) // 2 = 6 (R) + 21 (A) = 27
+    assert AEVC.aev_length == 27
+
+    aev = AEVC.forward((species, coordinates))
+
+    assert aev.species.shape == species.shape
+    assert aev.aevs.shape[0] == batch_size
+    assert aev.aevs.shape[-1] == 27
+
+    model = models.SiameseAffinityModel(n_species, AEVC.aev_length).to(device)
+
+    species_dict = {}
+    aevs_dict = {}
+
+    species_dict["lig"] = species.clone()
+    species_dict["lig"][~ligmasks] = -1  # Mask non-ligand (receptor) atoms
+    assert torch.sum(species_dict["lig"] != -1) == ligmasks.sum()
+    aevs_dict["lig"] = AEVC.forward((species_dict["lig"], coordinates)).aevs
+
+    species_dict["rec"] = species.clone()
+    species_dict["rec"][ligmasks] = -1  # Mask ligand atoms
+    assert torch.sum(species_dict["lig"] == -1) == species.numel() - ligmasks.sum()
+    aevs_dict["rec"] = AEVC.forward((species_dict["rec"], coordinates)).aevs
+
+    species_dict["ligrec"] = species
+    aevs_dict["ligrec"] = AEVC.forward((species, coordinates)).aevs
+
+    lig_atomic_contributions = model._forward_atomic(
+        species_dict["lig"], aevs_dict["lig"]
+    )
+    rec_atomic_contributions = model._forward_atomic(
+        species_dict["rec"], aevs_dict["rec"]
+    )
+    ligrec_atomic_contributions = model._forward_atomic(
+        species_dict["ligrec"], aevs_dict["ligrec"]
+    )
+
+    assert ligrec_atomic_contributions.shape == species.shape
+
+    output = model(species_dict, aevs_dict)
+
+    lig = torch.sum(lig_atomic_contributions, dim=1)
+    rec = torch.sum(rec_atomic_contributions, dim=1)
+    ligrec = torch.sum(ligrec_atomic_contributions, dim=1)
+
+    o = ligrec - lig - rec
+
+    assert np.allclose(output.cpu().detach().numpy(), o.cpu().detach().numpy())

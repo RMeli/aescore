@@ -109,6 +109,9 @@ def trainparser(default="BP"):
     parser.add_argument(
         "-p", "--dropout", type=float, default=None, help="Dropout probability"
     )
+    parser.add_argument(
+        "--loss", type=str, default="mse", help="Loss function", choices=["mse", "huber"]
+    )
 
     parser.add_argument(
         "-c",
@@ -140,6 +143,12 @@ def trainparser(default="BP"):
         default=None,
         type=str,
         help="Label path for virtual screening",
+    )
+
+    parser.add_argument(
+        "--siamese",
+        action="store_true",
+        help="Use siamese architecture",
     )
 
     args = parser.parse_args()
@@ -203,6 +212,12 @@ def predictparser():
         default=None,
         type=str,
         help="Label path for virtual screening",
+    )
+
+    parser.add_argument(
+        "--siamese",
+        action="store_true",
+        help="Use siamese architecture",
     )
 
     args = parser.parse_args()

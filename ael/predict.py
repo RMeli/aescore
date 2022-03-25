@@ -6,7 +6,8 @@ import numpy as np
 import pandas as pd
 import torch
 
-from ael import plot
+from ael import plot, train
+from ael.models import SiameseAffinityModel
 
 
 def predict(model, AEVC, loader, scaler=None, baseline=None, device=None):
@@ -41,6 +42,13 @@ def predict(model, AEVC, loader, scaler=None, baseline=None, device=None):
     if device is None:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    if isinstance(model, SiameseAffinityModel):
+        # Model is a siamese network
+        # Needs computation of non-interacting AEVS for protein and ligand
+        siamese = True
+    else:
+        siamese = False
+
     # Move model to device
     model.to(device)
 
@@ -67,11 +75,9 @@ def predict(model, AEVC, loader, scaler=None, baseline=None, device=None):
             else:
                 ligmasks = species_coordinates_ligmasks[2].to(device)
 
-            # Compute AEV
-            aevs = AEVC.forward((species, coordinates)).aevs
-
-            # Forward pass
-            output = model(species, aevs, ligmasks)
+            output = train._compute_output(
+                species, coordinates, ligmasks, AEVC, model, siamese
+            )
 
             output = output.cpu().numpy()
             labels = labels.cpu().numpy()

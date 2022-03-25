@@ -32,6 +32,7 @@ def savemodel(model: nn.ModuleDict, path) -> None:
                 "dropp": model.dropp,
             },
             "state_dict": model.state_dict(),
+            "name": model.__class__.__name__,
         },
         path,
     )
@@ -65,7 +66,12 @@ def loadmodel(path, eval: bool = True) -> nn.ModuleDict:
     else:
         d = torch.load(path, map_location=torch.device("cpu"))
 
-    model = models.AffinityModel(**d["args"])
+    if d["name"] == "AffinityModel":
+        model = models.AffinityModel(**d["args"])
+    elif d["name"] == "SiameseAffinityModel":
+        model = models.SiameseAffinityModel(**d["args"])
+    else:
+        raise ValueError(f"Unknown model {d['name']}")
 
     model.load_state_dict(d["state_dict"])
 

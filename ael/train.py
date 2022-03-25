@@ -1,3 +1,4 @@
+from multiprocessing.sharedctypes import Value
 import os
 from typing import List, Optional, Tuple, Union
 
@@ -6,7 +7,32 @@ import numpy as np
 import torch
 import tqdm
 
-from ael import utils
+from ael import utils, models
+
+
+def _compute_output(species, coordinates, ligmasks, AEVC, model, siamese):
+    if siamese:
+        species_dict = {}
+        aevs_dict = {}
+
+        species_dict["lig"] = species.clone()
+        species_dict["lig"][~ligmasks] = -1  # Mask non-ligand (receptor) atoms
+        aevs_dict["lig"] = AEVC.forward((species_dict["lig"], coordinates)).aevs
+
+        species_dict["rec"] = species.clone()
+        species_dict["rec"][ligmasks] = -1  # Mask ligand atoms
+        aevs_dict["rec"] = AEVC.forward((species_dict["rec"], coordinates)).aevs
+
+        species_dict["ligrec"] = species
+        aevs_dict["ligrec"] = AEVC.forward((species, coordinates)).aevs
+
+        output = model(species_dict, aevs_dict)
+    else:
+        aevs = AEVC.forward((species, coordinates)).aevs
+
+        output = model(species, aevs, ligmasks)
+
+    return output
 
 
 def train(
@@ -56,6 +82,13 @@ def train(
     if device is None:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    if isinstance(model, models.SiameseAffinityModel):
+        # Model is a siamese network
+        # Needs computation of non-interacting AEVS for protein and ligand
+        siamese = True
+    else:
+        siamese = False
+
     # Log parameters
     mlflow.log_param("aev_size", AEVC.aev_length)
     mlflow.log_param("trainloader_size", len(trainloader))
@@ -63,6 +96,8 @@ def train(
     mlflow.log_param("epochs", epochs)
     mlflow.log_param("loss_fn", loss_function.__class__.__name__)
     mlflow.log_param("optimizer", optimizer.__class__.__name__)
+    mlflow.log_param("model", model.__class__.__name__)
+    mlflow.log_param("siamese", siamese)
 
     # Move model and AEVComputer to device
     model.to(device)
@@ -90,15 +125,16 @@ def train(
             coordinates = species_coordinates_ligmasks[1].to(device)
 
             if len(species_coordinates_ligmasks) == 2:
+                assert not siamese, "Siamese model needs ligmask!"
                 ligmasks = None
             else:
                 ligmasks = species_coordinates_ligmasks[2].to(device)
 
-            aevs = AEVC.forward((species, coordinates)).aevs
-
             optimizer.zero_grad()
 
-            output = model(species, aevs, ligmasks)
+            output = _compute_output(
+                species, coordinates, ligmasks, AEVC, model, siamese
+            )
 
             loss = loss_function(output, labels)
 
@@ -129,10 +165,9 @@ def train(
                     else:
                         ligmasks = species_coordinates_ligmasks[2].to(device)
 
-                    aevs = AEVC.forward((species, coordinates)).aevs
-
-                    # Forward pass
-                    output = model(species, aevs, ligmasks)
+                    output = _compute_output(
+                        species, coordinates, ligmasks, AEVC, model, siamese
+                    )
 
                     valid_loss += loss_function(output, labels).item()
 
@@ -377,26 +412,41 @@ if __name__ == "__main__":
         models_list = []
         optimizers_list = []
         for idx in range(args.consensus):
-            models_list.append(
-                models.AffinityModel(
+            if args.siamese:
+                model = models.SiameseAffinityModel(
                     n_species,
                     AEVC.aev_length,
                     layers_sizes=args.layers,
                     dropp=args.dropout,
                 )
-            )
+            else:
+                model = models.AffinityModel(
+                    n_species,
+                    AEVC.aev_length,
+                    layers_sizes=args.layers,
+                    dropp=args.dropout,
+                )
+
+            models_list.append(model)
 
             # Define optimizer
             optimizers_list.append(optim.Adam(models_list[-1].parameters(), lr=args.lr))
 
             # Define loss
-            mse = nn.MSELoss()
+            if args.loss == "mse":
+                loss = nn.MSELoss()
+            elif args.loss == "huber":
+                huber_delta = 2.0
+                loss = nn.HuberLoss(delta=2.0)
+                mlflow.log_param("huber_delta", huber_delta)
+            else:
+                raise ValueError(f"Unknown loss function: {args.loss}")
 
             # Train model
             train_losses, valid_losses = train(
                 models_list[-1],
                 optimizers_list[-1],
-                mse,
+                loss,
                 AEVC,
                 trainloader,
                 validloader,
