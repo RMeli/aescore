@@ -1,9 +1,9 @@
-name: ael-test
+name: aescore
 channels:
   - pytorch
   - conda-forge
 dependencies:
-  - python
+  - python=3.9
   - pip
 
   - numpy
@@ -12,7 +12,7 @@ dependencies:
 
   - qcelemental
   - openbabel
-  - MDAnalysis
+  - MDAnalysis>=2.0
 
   - matplotlib
   - seaborn
@@ -21,7 +21,7 @@ dependencies:
 
   - pytorch
   - torchvision
-  - cudatoolkit=10.2
+  - cudatoolkit=11.3
 
   - torchani
 
